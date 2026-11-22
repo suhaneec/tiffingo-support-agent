@@ -8,17 +8,23 @@ Run it on your laptop:
 Settings (GOOGLE_API_KEY, GEMINI_MODEL, APP_PASSCODE):
 - on your laptop they come from the .env file;
 - online (Streamlit Community Cloud) they come from the app's Secrets.
+
+What the page does, in order:
+1. Passcode  2. Customer log-in (mobile number + 4-digit PIN)  3. Chat with Tiffy,
+with help topics and "My tickets" on the right, a check-in after 40 seconds of
+silence, and star ratings when the chat ends.
 """
 
 import asyncio
 import hmac
 import os
+import time
 import uuid
 
 import streamlit as st
 from dotenv import load_dotenv
 
-st.set_page_config(page_title="TiffinGo Support", page_icon="🍱")
+st.set_page_config(page_title="TiffinGo Support", page_icon="🍱", layout="wide")
 
 # ---- 0. Settings: .env on the laptop, Streamlit secrets online ----
 load_dotenv()  # does nothing online, where there is no .env file
@@ -35,16 +41,57 @@ if missing:
     st.stop()
 
 # Import the agent only after the settings are in place (it reads GEMINI_MODEL).
+from google.adk.agents.run_config import RunConfig, StreamingMode  # noqa: E402
 from google.adk.runners import InMemoryRunner  # noqa: E402
 from google.genai import types  # noqa: E402
 
+from support_agent import accounts  # noqa: E402
 from support_agent.agent import GREETING, root_agent  # noqa: E402
-from support_agent.help_docs import ensure_index  # noqa: E402
-from support_agent.tickets import open_tickets  # noqa: E402
+from support_agent.help_docs import HELP_FILE, ensure_index, split_into_chunks  # noqa: E402
+from support_agent.tickets import close_ticket, customer_tickets, save_rating, save_ticket  # noqa: E402
 
 APP_NAME = "tiffingo_support"
+IDLE_SECONDS = 40  # Tiffy checks in after this many seconds of silence
+NUDGE = "Are you still there? 👀 Would you like me to connect you to an agent, or shall I close this chat?"
 
-st.title("🍱 TiffinGo Support")
+# FAQ groups for the "Help topics" panel. Questions not listed here go under "Other questions".
+TOPICS = {
+    "🛵 Orders & delivery": [
+        "What areas do you deliver to?", "What are your delivery hours?", "Is there a minimum order value?",
+        "How much is the delivery fee?", "How long does delivery take?", "How do I track my order?",
+        "Can I schedule an order for later?",
+    ],
+    "💳 Payments, cancellations & refunds": [
+        "Which payment methods do you accept?", "Can I cancel my order?", "How long do refunds take?",
+        "How do coupons work?", "My food arrived cold or spilled. What do I do?", "An item was missing from my order.",
+    ],
+    "🍱 Tiffin plans": ["Do you have a monthly tiffin plan?", "Can I pause my tiffin plan?"],
+    "🥗 Food & allergens": ["Is the food vegetarian?", "Do you show allergen details?", "Can I ask for less spice?"],
+    "👤 Account & partners": ["How do I change my phone number?", "Can I list my home kitchen on TiffinGo?"],
+}
+
+# ---- Look and feel: orange food-delivery style (colours are in .streamlit/config.toml) ----
+st.markdown(
+    """
+    <style>
+    .block-container {padding-top: 1.2rem;}
+    .tg-header {background: linear-gradient(90deg, #F26B1D, #FF9A52); color: white;
+                padding: 14px 22px; border-radius: 16px; margin-bottom: 14px;}
+    .tg-title {font-size: 1.4rem; font-weight: 700;}
+    .tg-sub {font-size: 0.9rem; opacity: 0.95;}
+    [data-testid="stChatMessage"] {border-radius: 18px; padding: 10px 14px; background: #F7F7F7;}
+    /* The customer's bubbles sit on the right, in light orange, like a delivery app */
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+        background: #FFE9DA; flex-direction: row-reverse;}
+    .stButton button {border-radius: 999px;}
+    </style>
+    <div class="tg-header">
+      <div class="tg-title">🍱 TiffinGo · Help &amp; Support</div>
+      <div class="tg-sub">Chat with Tiffy · usually replies in a few seconds</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_resource
@@ -54,80 +101,307 @@ def start_up():
     return InMemoryRunner(agent=root_agent, app_name=APP_NAME)
 
 
-# ---- 1. Passcode: the chat opens only after the right passcode ----
-if not st.session_state.get("unlocked"):
-    entered = st.text_input("Enter the passcode to start chatting", type="password")
-    if entered:
-        if hmac.compare_digest(entered.encode(), os.environ["APP_PASSCODE"].encode()):
-            st.session_state["unlocked"] = True
-            st.rerun()
-        else:
-            st.error("That passcode is not right.")
+@st.cache_data
+def help_entries():
+    """Reads the help docs (no Gemini needed) and returns a list of (title, answer) to show on the page."""
+    entries = []
+    for title, text in split_into_chunks(HELP_FILE.read_text(encoding="utf-8")):
+        lines = text.splitlines()[1:]  # drop the "Q: ..." or "Policy: ..." line
+        answer = "  \n".join(lines)
+        if answer.startswith("A:"):
+            answer = answer[2:].strip()
+        entries.append((title, answer))
+    return entries
+
+
+def faq_answer(question):
+    """The instant answer (with its source) for one FAQ question, straight from the help docs."""
+    for title, answer in help_entries():
+        if title in (question, "FAQ: " + question):
+            return f"{answer}\n\n(Source: {title})"
+    return None
+
+
+s = st.session_state  # short name for this visitor's memory
+
+# ---- 1. Passcode: the page opens only after the right passcode ----
+if not s.get("unlocked"):
+    _, middle, _ = st.columns([1, 2, 1])
+    with middle:
+        entered = st.text_input("Enter the passcode to open TiffinGo Support", type="password")
+        if entered:
+            if hmac.compare_digest(entered.encode(), os.environ["APP_PASSCODE"].encode()):
+                s["unlocked"] = True
+                st.rerun()
+            else:
+                st.error("That passcode is not right.")
     st.stop()
 
-# ---- 2. The chat ----
+# ---- 2. Customer log-in: mobile number + 4-digit PIN ----
+if not s.get("customer"):
+    _, middle, _ = st.columns([1, 2, 1])
+    with middle:
+        st.subheader("Log in to get help")
+        if s.get("wrong_pins", 0) >= 5:
+            st.error("Too many wrong PINs. Please close this page and try again later.")
+            st.stop()
+
+        phone = accounts.clean_phone(st.text_input("Mobile number", placeholder="10-digit mobile number"))
+        if phone:
+            if accounts.is_registered(phone):
+                pin = st.text_input("Your 4-digit PIN", type="password", max_chars=4)
+                if st.button("Log in", type="primary"):
+                    if accounts.check_pin(phone, pin):
+                        s["customer"] = phone
+                        st.rerun()
+                    else:
+                        s["wrong_pins"] = s.get("wrong_pins", 0) + 1
+                        st.error("That PIN doesn't match this number.")
+            else:
+                st.info("New here? Choose a 4-digit PIN. You'll use it to see your tickets next time.")
+                pin = st.text_input("Choose a 4-digit PIN", type="password", max_chars=4)
+                pin2 = st.text_input("Type the PIN again", type="password", max_chars=4)
+                if st.button("Create account", type="primary"):
+                    if not (pin.isdigit() and len(pin) == 4):
+                        st.error("The PIN must be exactly 4 digits.")
+                    elif pin != pin2:
+                        st.error("The two PINs don't match.")
+                    else:
+                        accounts.register(phone, pin)
+                        s["customer"] = phone
+                        st.rerun()
+        else:
+            st.caption("Enter a 10-digit Indian mobile number, e.g. 98765 43210.")
+    st.stop()
+
+customer = s["customer"]
+
+# ---- 3. The chat ----
 with st.spinner("Starting Tiffy (the first start can take a minute)..."):
     runner = start_up()
 
-# One conversation per browser visit, starting with Tiffy's greeting.
-if "session_id" not in st.session_state:
-    st.session_state["user_id"] = str(uuid.uuid4())
-    st.session_state["session_id"] = str(uuid.uuid4())
-    st.session_state["messages"] = [{"role": "assistant", "text": GREETING}]
+
+def new_chat():
+    """Starts a fresh conversation for the logged-in customer, beginning with Tiffy's greeting."""
+    s["session_id"] = str(uuid.uuid4())
+    s["messages"] = [{"role": "assistant", "text": GREETING}]
+    s["closed"] = False  # True once the chat has ended (then we ask for ratings)
+    s["rated"] = False
+    s["nudged"] = False  # True once Tiffy has checked in during this silence
+    s["last_bot_time"] = time.time()
     asyncio.run(
-        runner.session_service.create_session(
-            app_name=APP_NAME,
-            user_id=st.session_state["user_id"],
-            session_id=st.session_state["session_id"],
-        )
+        runner.session_service.create_session(app_name=APP_NAME, user_id=customer, session_id=s["session_id"])
     )
 
 
-async def ask_tiffy(text):
-    """Send one customer message to Tiffy and return her final reply."""
+if "session_id" not in s:
+    new_chat()
+
+
+def tiffy_stream(text):
+    """Sends one message to Tiffy and hands back her reply bit by bit, as Gemini writes it."""
     message = types.Content(role="user", parts=[types.Part(text=text)])
-    reply = ""
-    async for event in runner.run_async(
-        user_id=st.session_state["user_id"],
-        session_id=st.session_state["session_id"],
+    loop = asyncio.new_event_loop()
+    events = runner.run_async(
+        user_id=customer,
+        session_id=s["session_id"],
         new_message=message,
-    ):
-        if event.is_final_response() and event.content and event.content.parts:
-            reply = "".join(p.text or "" for p in event.content.parts)
-    return reply
-
-
-# Show the conversation so far (chat bubbles).
-for m in st.session_state["messages"]:
-    with st.chat_message(m["role"], avatar="🍱" if m["role"] == "assistant" else None):
-        st.markdown(m["text"])
-
-# Take a new message, send it to Tiffy and show the reply.
-if question := st.chat_input("Ask Tiffy about orders, delivery, plans or refunds"):
-    st.session_state["messages"].append({"role": "user", "text": question})
-    with st.chat_message("user"):
-        st.markdown(question)
-    with st.chat_message("assistant", avatar="🍱"):
-        with st.spinner("Tiffy is typing..."):
+        run_config=RunConfig(streaming_mode=StreamingMode.SSE),  # send words as they come
+    )
+    shown_anything = False  # has any reply text been shown yet?
+    streamed_this_step = False  # was this step's text already shown in pieces?
+    try:
+        while True:
             try:
-                answer = asyncio.run(ask_tiffy(question))
-            except Exception as error:
-                if "429" in str(error) or "RESOURCE_EXHAUSTED" in str(error):
-                    answer = "Sorry, I'm getting too many messages right now. Please try again in a minute."
-                else:
-                    answer = "Sorry, something went wrong. Please try again."
-                print("Error from the agent:", error)  # shows in the terminal / Streamlit Cloud logs
-        answer = answer or "Sorry, I have no reply right now."
-        st.markdown(answer)
-    st.session_state["messages"].append({"role": "assistant", "text": answer})
+                event = loop.run_until_complete(events.__anext__())
+            except StopAsyncIteration:
+                break
+            if not (event.content and event.content.parts):
+                continue
+            piece = "".join(p.text or "" for p in event.content.parts if not getattr(p, "thought", False))
+            if event.partial:
+                # A small piece of the reply: show it straight away.
+                if piece:
+                    if shown_anything and not streamed_this_step:
+                        yield "\n\n"
+                    yield piece
+                    shown_anything = streamed_this_step = True
+            else:
+                # The full text of one step. Show it only if it didn't arrive in pieces.
+                if piece and not streamed_this_step:
+                    yield ("\n\n" if shown_anything else "") + piece
+                    shown_anything = True
+                streamed_this_step = False
+    except Exception as error:
+        print("Error from the agent:", error)  # shows in the terminal / Streamlit Cloud logs
+        if "429" in str(error) or "RESOURCE_EXHAUSTED" in str(error):
+            yield "Sorry, I'm getting too many messages right now. Please try again in a minute."
+        else:
+            yield "Sorry, something went wrong. Please try again."
+        shown_anything = True
+    finally:
+        loop.run_until_complete(events.aclose())
+        loop.close()
+    if not shown_anything:
+        yield "Sorry, I have no reply right now."
 
-# ---- 3. Sidebar: open tickets (drawn last, so a ticket made just now shows up) ----
-with st.sidebar:
-    st.header("Open tickets")
-    tickets = open_tickets()
-    if not tickets:
-        st.caption("No open tickets yet.")
-    for t in tickets:
-        flag = "🔴 HIGH" if t["priority"] == "high" else "🟢 normal"
-        st.markdown(f"**{t['ticket_id']}** · {flag}  \n{t['reason']}  \n_{t['message']}_  \n{t['time']}")
-        st.divider()
+
+def bot_says(text):
+    """Adds a message from Tiffy to the chat."""
+    s["messages"].append({"role": "assistant", "text": text})
+    s["last_bot_time"] = time.time()
+
+
+def ask(question, instant_answer=None):
+    """Button helper: queue a message to send (with an instant answer if we already know it)."""
+    s["pending"] = (question, instant_answer)
+
+
+def connect_agent():
+    """Raises a ticket straight away (no Gemini call) so a person takes over."""
+    said = [m["text"] for m in s["messages"] if m["role"] == "user"]
+    summary = said[-1] if said else "Customer asked to talk to an agent."
+    s["messages"].append({"role": "user", "text": "Connect me to an agent, please."})
+    ticket_id = save_ticket(customer, summary, "asked for a person")
+    bot_says(f"Done! I've raised ticket **{ticket_id}**. A person from our team will reply within 24 hours. 🙏")
+
+
+def close_chat():
+    s["closed"] = True
+
+
+def log_out():
+    for key in ("customer", "session_id", "messages", "pending"):
+        s.pop(key, None)
+
+
+left, right = st.columns([3, 2], gap="large")
+
+# ---- Left side: the chat window ----
+with left:
+    top_left, top_right = st.columns([3, 2])
+    top_left.caption(f"Logged in as +91 ••••••{customer[-4:]}")
+    with top_right:
+        b1, b2 = st.columns(2)
+        b1.button("End chat", on_click=close_chat, disabled=s["closed"], width="stretch")
+        b2.button("Log out", on_click=log_out, width="stretch")
+
+    chat_box = st.container(height=470)
+    with chat_box:
+        for m in s["messages"]:
+            with st.chat_message(m["role"], avatar="🍱" if m["role"] == "assistant" else "🙂"):
+                st.markdown(m["text"])
+        # After the 40-second check-in, offer the two choices as buttons.
+        if not s["closed"] and s["messages"][-1]["text"] == NUDGE:
+            c1, c2 = st.columns(2)
+            c1.button("👩‍💼 Connect me to an agent", on_click=connect_agent, width="stretch")
+            c2.button("✅ Close chat", on_click=close_chat, width="stretch")
+
+    if s["closed"]:
+        # ---- Ratings when the chat has ended ----
+        if not s["rated"]:
+            st.markdown("#### Chat ended. How did we do?")
+            st.write("How was your chat with Tiffy?")
+            chat_stars = st.feedback("stars", key=f"chat_stars_{s['session_id']}")
+            st.write("Was your problem solved?")
+            solved_stars = st.feedback("stars", key=f"solved_stars_{s['session_id']}")
+            comment = st.text_area("Anything else you'd like to tell us? (optional)")
+            if st.button("Submit rating", type="primary"):
+                if chat_stars is None or solved_stars is None:
+                    st.warning("Please pick stars for both questions.")
+                else:
+                    save_rating(customer, chat_stars + 1, solved_stars + 1, comment)  # stars come as 0-4
+                    s["rated"] = True
+                    st.rerun()
+        else:
+            st.success("Thank you for your rating! 🧡")
+        st.button("Start a new chat", type="primary", on_click=new_chat)
+    else:
+        # ---- Quick-action buttons and the message box ----
+        q1, q2, q3, q4 = st.columns(4)
+        q1.button("📦 Track my order", on_click=ask, args=("I want to track my order.",), width="stretch")
+        q2.button("💸 Refund / cancel", on_click=ask, args=("I want to cancel my order or get a refund.",),
+                  width="stretch")
+        q3.button("🕒 Delivery hours", on_click=ask,
+                  args=("What are your delivery hours?", faq_answer("What are your delivery hours?")),
+                  width="stretch")
+        q4.button("👩‍💼 Talk to an agent", on_click=connect_agent, width="stretch")
+
+        typed = st.chat_input("Type your message to Tiffy...")
+        question, instant_answer = (typed, None) if typed else s.pop("pending", (None, None))
+
+        if question:
+            s["messages"].append({"role": "user", "text": question})
+            s["nudged"] = False  # the customer spoke, so Tiffy may check in again after the next silence
+            with chat_box:
+                with st.chat_message("user", avatar="🙂"):
+                    st.markdown(question)
+                with st.chat_message("assistant", avatar="🍱"):
+                    if instant_answer:
+                        st.markdown(instant_answer)  # straight from the help docs, no waiting
+                        answer = instant_answer
+                    else:
+                        with st.spinner("Tiffy is typing..."):
+                            answer = st.write_stream(tiffy_stream(question))
+            bot_says(answer)
+
+        # ---- The 40-second check-in (runs quietly every 5 seconds, uses no Gemini) ----
+        @st.fragment(run_every=5)
+        def idle_check():
+            customer_has_spoken = any(m["role"] == "user" for m in s["messages"])
+            waiting_for_customer = s["messages"][-1]["role"] == "assistant"
+            if customer_has_spoken and waiting_for_customer and not s["nudged"] and not s["closed"]:
+                if time.time() - s["last_bot_time"] >= IDLE_SECONDS:
+                    bot_says(NUDGE)
+                    s["nudged"] = True
+                    st.rerun()
+
+        idle_check()
+
+# ---- Right side: help topics and the customer's own tickets (drawn last, so new tickets show) ----
+with right:
+    help_tab, tickets_tab = st.tabs(["❓ Help topics", "🎫 My tickets"])
+
+    with help_tab:
+        with st.container(height=560):
+            entries = help_entries()
+            faqs = {t[len("FAQ: "):]: a for t, a in entries if t.startswith("FAQ: ")}
+            policies = [(t, a) for t, a in entries if not t.startswith("FAQ: ")]
+            listed = {q for qs in TOPICS.values() for q in qs}
+            groups = dict(TOPICS)
+            others = [q for q in faqs if q not in listed]
+            if others:
+                groups["💬 Other questions"] = others
+
+            for topic, questions in groups.items():
+                st.markdown(f"**{topic}**")
+                for q in questions:
+                    if q in faqs:
+                        with st.expander(q):
+                            st.markdown(faqs[q])
+                            st.button("Ask Tiffy about this", key=f"faq_{q}", on_click=ask,
+                                      args=(q, faq_answer(q)), disabled=s["closed"])
+            st.markdown("**📜 Policies**")
+            for title, text in policies:
+                with st.expander(title):
+                    st.markdown(text)
+
+    with tickets_tab:
+        tickets = customer_tickets(customer)  # only this customer's tickets, never anyone else's
+        open_count = sum(1 for t in tickets if t["status"] == "open")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total", len(tickets))
+        m2.metric("Open", open_count)
+        m3.metric("Closed", len(tickets) - open_count)
+
+        if not tickets:
+            st.caption("You have no tickets yet. If Tiffy hands you over to a person, your ticket shows here.")
+        for t in tickets:
+            with st.container(border=True):
+                status = "🟠 Open" if t["status"] == "open" else "✅ Closed"
+                flag = "🔴 High priority" if t["priority"] == "high" else "Normal priority"
+                st.markdown(f"**{t['ticket_id']}** · {status} · {flag}  \n"
+                            f"**{t['reason'].capitalize()}**  \n_{t['message']}_  \n{t['time']}")
+                if t["status"] == "open":
+                    st.button("Mark as resolved", key=f"close_{t['ticket_id']}",
+                              on_click=close_ticket, args=(t["ticket_id"], customer))

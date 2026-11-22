@@ -1,0 +1,8 @@
+# Colours for the TiffinGo Support page (orange and white, like a food delivery app).
+[theme]
+base = "light"
+primaryColor = "#F26B1D"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#FFF4EC"
+textColor = "#1F1F1F"
+font = "sans serif"
