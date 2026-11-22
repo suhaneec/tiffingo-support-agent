@@ -57,7 +57,31 @@ IDLE_SECONDS = 40  # Tiffy checks in after this many seconds of silence
 NUDGE = "Are you still there? Would you like me to connect you to an agent, or shall I close this chat?"
 
 # Icons (Google's clean "material" line icons instead of emojis)
-TIFFY_AVATAR = ":material/support_agent:"
+# Tiffy's picture: a friendly orange tiffin box with a face and a support headset (drawn as SVG).
+def tiffy(size):
+    """Returns Tiffy's picture as SVG at the given size in pixels."""
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">'
+        '<circle cx="60" cy="60" r="58" fill="#FFE9DA"/>'
+        '<path d="M27 56 A33 33 0 0 1 93 56" fill="none" stroke="#2A2A33" stroke-width="5" stroke-linecap="round"/>'
+        '<path d="M49 40 V33 a6 6 0 0 1 6-6 h10 a6 6 0 0 1 6 6 V40" fill="none" stroke="#C9541A" stroke-width="4"/>'
+        '<rect x="34" y="96" width="52" height="12" rx="5" fill="#FBA36E"/>'
+        '<rect x="32" y="78" width="56" height="16" rx="6" fill="#F7894A"/>'
+        '<rect x="30" y="40" width="60" height="35" rx="12" fill="#F26B1D"/>'
+        '<rect x="22" y="50" width="10" height="18" rx="4" fill="#2A2A33"/>'
+        '<rect x="88" y="50" width="10" height="18" rx="4" fill="#2A2A33"/>'
+        '<path d="M93 66 q1 14 -17 14" fill="none" stroke="#2A2A33" stroke-width="3" stroke-linecap="round"/>'
+        '<circle cx="75" cy="80" r="3.6" fill="#2A2A33"/>'
+        '<ellipse cx="48" cy="55" rx="4.5" ry="5.5" fill="#2A2A33"/>'
+        '<ellipse cx="72" cy="55" rx="4.5" ry="5.5" fill="#2A2A33"/>'
+        '<circle cx="49.6" cy="53" r="1.6" fill="#FFFFFF"/><circle cx="73.6" cy="53" r="1.6" fill="#FFFFFF"/>'
+        '<circle cx="40" cy="64" r="4" fill="#FFB38A"/><circle cx="80" cy="64" r="4" fill="#FFB38A"/>'
+        '<path d="M51 63 q9 8 18 0" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>'
+        "</svg>"
+    )
+
+
+TIFFY_AVATAR = tiffy(40)
 CUSTOMER_AVATAR = ":material/person:"
 
 # FAQ groups for the help centre. Questions not listed here go under "Other questions".
@@ -146,6 +170,28 @@ st.markdown(
         box-shadow: 0 6px 24px rgba(40, 20, 0, 0.06);}}
     .st-key-chatcard {{padding: 0 0 14px 0; gap: 0.6rem;}}
     .st-key-sidepanel {{padding: 6px 20px 14px 20px;}}
+
+    /* Welcome panel introducing Tiffy (with two thin rings for decoration) */
+    .tg-intro {{position: relative; overflow: hidden; display: flex; align-items: center; gap: 24px;
+                padding: 24px 26px; margin: 8px 0 14px 0; border-radius: 20px; border: 1px solid #F6E3D5;
+                background: linear-gradient(120deg, #FFF3EA 0%, #FFFAF6 55%, #FFFFFF 100%);}}
+    .tg-intro::before, .tg-intro::after {{content: ""; position: absolute; border-radius: 50%;
+                border: 1.5px solid rgba(242, 107, 29, 0.16); pointer-events: none;}}
+    .tg-intro::before {{width: 260px; height: 260px; right: -90px; top: -120px;}}
+    .tg-intro::after {{width: 180px; height: 180px; right: -50px; top: -80px;}}
+    .tg-intro-art {{flex-shrink: 0; filter: drop-shadow(0 10px 18px rgba(242, 107, 29, 0.22));}}
+    .tg-intro-kicker {{font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+                      color: #C2540F;}}
+    .tg-intro-name {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.9rem; font-weight: 800;
+                    color: #1E1E28; letter-spacing: -0.02em; margin: 2px 0 6px 0;}}
+    .tg-intro-desc {{font-size: 0.98rem; color: #55555F; line-height: 1.6; max-width: 560px;}}
+    .tg-skills {{display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;}}
+    .tg-skill {{display: inline-flex; align-items: center; background: #FFFFFF; border: 1px solid #F3DCCB;
+               border-radius: 999px; padding: 5px 12px 5px 10px; font-size: 0.85rem; font-weight: 600;
+               color: #3A3A44;}}
+    .tg-skill .tg-ico {{font-size: 17px; margin-right: 6px; vertical-align: 0;}}
+    /* Tiffy's picture fills her avatar circle */
+    [data-testid="stChatMessageAvatarCustom"] {{background: transparent; border: none;}}
 
     /* Chat panel header strip */
     .tg-chat-head {{display: flex; align-items: center; gap: 12px; padding: 14px 0;}}
@@ -541,7 +587,7 @@ with left, st.container(key="chatcard"):  # "chatcard" gets the white card style
     with st.container(key="chathead"):
         head_text, head_button = st.columns([4, 1], vertical_alignment="center")
         head_text.markdown(
-            f"""<div class="tg-chat-head">{LOGO}<div><div class="tg-chat-name">Tiffy · TiffinGo Support</div>
+            f"""<div class="tg-chat-head">{tiffy(46)}<div><div class="tg-chat-name">Tiffy · TiffinGo Support</div>
             <div class="tg-chat-status"><span class="tg-dot"></span>Online · usually replies in a few seconds</div>
             </div></div>""",
             unsafe_allow_html=True,
@@ -551,6 +597,25 @@ with left, st.container(key="chatcard"):  # "chatcard" gets the white card style
 
     chat_box = st.container(height=520, key="chatbox", border=False, autoscroll=True)
     with chat_box:
+        # Welcome panel introducing Tiffy, at the top of every conversation
+        skills = [("local_shipping", "Order tracking"), ("currency_rupee", "Refunds & cancellations"),
+                  ("lunch_dining", "Tiffin plans"), ("restaurant", "Food & allergens")]
+        skills_html = "".join(f'<span class="tg-skill"><span class="tg-ico">{icon}</span>{name}</span>'
+                              for icon, name in skills)
+        st.markdown(
+            f"""<div class="tg-intro">
+              <div class="tg-intro-art">{tiffy(128)}</div>
+              <div>
+                <div class="tg-intro-kicker">Meet your support assistant</div>
+                <div class="tg-intro-name">Hi, I'm Tiffy</div>
+                <div class="tg-intro-desc">I help with your orders, deliveries, refunds, tiffin plans and food
+                  questions, with answers from the TiffinGo help centre. If I can't sort it out, I'll
+                  connect you to our team.</div>
+                <div class="tg-skills">{skills_html}</div>
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
         for i, m in enumerate(s["messages"]):
             with bubble(m["role"], i):
                 st.markdown(m["text"])
