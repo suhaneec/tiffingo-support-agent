@@ -1,8 +1,23 @@
-# Colours for the TiffinGo Support page (orange and white, like a food delivery app).
+# The look of the TiffinGo Support page: orange and white, like a food delivery app.
 [theme]
 base = "light"
-primaryColor = "#F26B1D"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#FFF4EC"
-textColor = "#1F1F1F"
-font = "sans serif"
+
+# Colours
+primaryColor = "#F26B1D"              # TiffinGo orange: buttons, links, active tab
+backgroundColor = "#FFFFFF"           # page
+secondaryBackgroundColor = "#FFF6EF"  # light orange: chat box, inputs, tiles
+textColor = "#2B2B33"                 # main text (soft black)
+grayTextColor = "#7A7A85"             # small grey text
+borderColor = "#F0E4DA"               # thin, warm borders
+linkColor = "#F26B1D"
+
+# Text: one friendly rounded font for everything
+font = "Nunito Sans:https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap"
+baseFontSize = 15
+headingFontWeights = [800, 700, 700, 700, 700, 700]
+metricValueFontSize = "1.6rem"
+metricValueFontWeight = 800
+
+# Shapes
+baseRadius = "0.75rem"   # rounded corners on boxes and inputs
+buttonRadius = "full"    # pill-shaped buttons

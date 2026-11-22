@@ -1,66 +1,59 @@
 """
-Customer log-in for the web page: mobile number + a 4-digit PIN.
+Customer log-in for the web page: email + a one-time code (OTP).
 
-The first time a number is used, the customer chooses a PIN. After that, the same
-number only opens with the same PIN, so nobody can see another customer's tickets
-just by typing their number.
+The customer types their email, we email them a 6-digit code from a Gmail account,
+and they type the code back. Only someone who can open that inbox can log in, so
+nobody can see another customer's tickets.
 
-PINs are never saved as they are. We save a scrambled version (a "hash") with a
-random "salt", in customers.csv in the project folder.
+The Gmail address and its "app password" come from the settings
+(OTP_EMAIL_ADDRESS and OTP_EMAIL_APP_PASSWORD in .env, or Streamlit secrets online).
+They are never written in code.
 """
 
-import csv
 import hashlib
 import hmac
 import os
-from pathlib import Path
+import re
+import secrets
+import smtplib
+from email.message import EmailMessage
 
-CUSTOMERS_FILE = Path(__file__).resolve().parent.parent / "customers.csv"
-
-
-def clean_phone(text: str) -> str:
-    """Turns '+91 98765 43210' into '9876543210'. Returns '' if it isn't a 10-digit Indian mobile number."""
-    digits = "".join(ch for ch in str(text) if ch.isdigit())
-    if len(digits) == 12 and digits.startswith("91"):
-        digits = digits[2:]  # drop the +91
-    if len(digits) == 10 and digits[0] in "6789":
-        return digits
-    return ""
+CODE_MINUTES = 10  # a code works for this many minutes
 
 
-def _scramble(pin: str, salt: str) -> str:
-    """Makes the hash of a PIN. The same PIN and salt always give the same hash."""
-    return hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), 200_000).hex()
+def clean_email(text: str) -> str:
+    """Returns the email in small letters, or '' if it doesn't look like an email address."""
+    email = str(text).strip().lower()
+    return email if re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]{2,}", email) else ""
 
 
-def _read_customers() -> dict:
-    """Returns {phone: (salt, pin_hash)} for every saved customer."""
-    if not CUSTOMERS_FILE.exists():
-        return {}
-    with open(CUSTOMERS_FILE, newline="", encoding="utf-8") as f:
-        return {row["phone"]: (row["salt"], row["pin_hash"]) for row in csv.DictReader(f)}
+def new_code() -> str:
+    """Makes a random 6-digit code, like 048213."""
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
-def is_registered(phone: str) -> bool:
-    """True if this number has already chosen a PIN."""
-    return phone in _read_customers()
+def scramble(code: str) -> str:
+    """The code's hash. We keep only this, never the code itself."""
+    return hashlib.sha256(code.encode()).hexdigest()
 
 
-def register(phone: str, pin: str):
-    """Saves a new customer with their chosen PIN (scrambled)."""
-    is_new_file = not CUSTOMERS_FILE.exists()
-    salt = os.urandom(16).hex()
-    with open(CUSTOMERS_FILE, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if is_new_file:
-            writer.writerow(["phone", "salt", "pin_hash"])
-        writer.writerow([phone, salt, _scramble(pin, salt)])
+def code_matches(typed: str, saved_hash: str) -> bool:
+    """True if the typed code is the one we sent."""
+    return hmac.compare_digest(scramble(typed.strip()), saved_hash)
 
 
-def check_pin(phone: str, pin: str) -> bool:
-    """True only if this number exists and the PIN matches."""
-    saved = _read_customers().get(phone)
-    if not saved:
-        return False
-    salt, pin_hash = saved
-    return hmac.compare_digest(_scramble(pin, salt), pin_hash)
+def send_code(to_email: str, code: str):
+    """Emails the code to the customer from the TiffinGo Gmail account. Raises an error if sending fails."""
+    sender = os.environ["OTP_EMAIL_ADDRESS"]
+    message = EmailMessage()
+    message["Subject"] = f"{code} is your TiffinGo login code"
+    message["From"] = f"TiffinGo Support <{sender}>"
+    message["To"] = to_email
+    message.set_content(
+        f"Hi!\n\nYour TiffinGo login code is: {code}\n\n"
+        f"It works for {CODE_MINUTES} minutes. If you didn't ask for it, you can ignore this email.\n\n"
+        "TiffinGo Support (a practice project, not a real company)"
+    )
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
+        server.login(sender, os.environ["OTP_EMAIL_APP_PASSWORD"])
+        server.send_message(message)

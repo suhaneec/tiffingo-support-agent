@@ -11,7 +11,7 @@ Built for the AI Residency (Goa, 20 to 22 Nov 2026) with Google ADK, Gemini and 
 - Raises **tickets** (`TKT-1001`, `TKT-1002`...) in `tickets.csv` when a person should take over. That happens when someone feels unwell after a meal (high priority), asks for a refund above ₹1,000, complains about a rider, is angry, asks something the docs don't answer, or asks for a person.
 - **Guardrails**: it never gives medical advice, never shares a rider's or another customer's phone number, never promises refunds outside the policy, and ignores "ignore your rules" requests.
 - **Order lookup**: shows an order only if both the order ID and the last 4 phone digits match.
-- **Web page** (`app.py`): asks for a passcode, shows chat bubbles, and lists open tickets in a sidebar.
+- **Web page** (`app.py`): customers log in with their email and a one-time code (OTP) sent by email, chat with Tiffy, browse the help topics, and see only their own tickets (total, open, closed). Tiffy checks in after 40 seconds of silence, and customers rate the chat when it ends.
 
 ## Files
 
@@ -29,7 +29,7 @@ Built for the AI Residency (Goa, 20 to 22 Nov 2026) with Google ADK, Gemini and 
 
 ## Run it on your laptop (Windows)
 
-1. Create a `.env` file from `.env.example` and fill in `GOOGLE_API_KEY`, `GEMINI_MODEL` and `APP_PASSCODE`.
+1. Create a `.env` file from `.env.example` and fill in `GOOGLE_API_KEY`, `GEMINI_MODEL`, `OTP_EMAIL_ADDRESS` and `OTP_EMAIL_APP_PASSWORD` (a Gmail app password).
 2. Set up the project:
    ```
    py -3.13 -m venv .venv
@@ -50,7 +50,8 @@ On a Mac, use `.venv/bin/...` instead of `.venv\Scripts\...`.
    ```
    GOOGLE_API_KEY = "your-key"
    GEMINI_MODEL = "gemini-3.5-flash-lite"
-   APP_PASSCODE = "your-passcode"
+   OTP_EMAIL_ADDRESS = "your-gmail-address@gmail.com"
+   OTP_EMAIL_APP_PASSWORD = "your-app-password"
    ```
 4. Deploy. The first load builds the index, so it can take a minute.
 

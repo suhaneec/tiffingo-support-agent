@@ -5,18 +5,17 @@ Run it on your laptop:
     Mac:      .venv/bin/streamlit run app.py
     Windows:  .venv\\Scripts\\streamlit run app.py
 
-Settings (GOOGLE_API_KEY, GEMINI_MODEL, APP_PASSCODE):
+Settings (GOOGLE_API_KEY, GEMINI_MODEL, OTP_EMAIL_ADDRESS, OTP_EMAIL_APP_PASSWORD):
 - on your laptop they come from the .env file;
 - online (Streamlit Community Cloud) they come from the app's Secrets.
 
 What the page does, in order:
-1. Passcode  2. Customer log-in (mobile number + 4-digit PIN)  3. Chat with Tiffy,
+1. Customer log-in (email + a one-time code sent by email)  2. Chat with Tiffy,
 with help topics and "My tickets" on the right, a check-in after 40 seconds of
 silence, and star ratings when the chat ends.
 """
 
 import asyncio
-import hmac
 import os
 import time
 import uuid
@@ -27,15 +26,16 @@ from dotenv import load_dotenv
 st.set_page_config(page_title="TiffinGo Support", page_icon="🍱", layout="wide")
 
 # ---- 0. Settings: .env on the laptop, Streamlit secrets online ----
+SETTINGS = ("GOOGLE_API_KEY", "GEMINI_MODEL", "OTP_EMAIL_ADDRESS", "OTP_EMAIL_APP_PASSWORD")
 load_dotenv()  # does nothing online, where there is no .env file
 try:
-    for name in ("GOOGLE_API_KEY", "GEMINI_MODEL", "APP_PASSCODE"):
+    for name in SETTINGS:
         if name in st.secrets and not os.environ.get(name):
             os.environ[name] = str(st.secrets[name])
 except Exception:
     pass  # no secrets file on the laptop: that's fine, .env is used instead
 
-missing = [n for n in ("GOOGLE_API_KEY", "GEMINI_MODEL", "APP_PASSCODE") if not os.environ.get(n)]
+missing = [n for n in SETTINGS if not os.environ.get(n)]
 if missing:
     st.error("This page is not set up yet. Missing setting(s): " + ", ".join(missing))
     st.stop()
@@ -74,16 +74,35 @@ TOPICS = {
 st.markdown(
     """
     <style>
-    .block-container {padding-top: 1.2rem;}
+    /* Page spacing */
+    .block-container {padding-top: 1.2rem; padding-bottom: 1rem; max-width: 1300px;}
+
+    /* Orange top bar */
     .tg-header {background: linear-gradient(90deg, #F26B1D, #FF9A52); color: white;
-                padding: 14px 22px; border-radius: 16px; margin-bottom: 14px;}
-    .tg-title {font-size: 1.4rem; font-weight: 700;}
-    .tg-sub {font-size: 0.9rem; opacity: 0.95;}
-    [data-testid="stChatMessage"] {border-radius: 18px; padding: 10px 14px; background: #F7F7F7;}
-    /* The customer's bubbles sit on the right, in light orange, like a delivery app */
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
-        background: #FFE9DA; flex-direction: row-reverse;}
-    .stButton button {border-radius: 999px;}
+                padding: 14px 22px; border-radius: 16px; margin-bottom: 16px;}
+    .tg-title {font-size: 1.35rem; font-weight: 800;}
+    .tg-sub {font-size: 0.88rem; opacity: 0.95;}
+
+    /* Small orange section labels (Quick help, FAQ topics) */
+    .tg-label {font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+               color: #F26B1D; margin: 14px 0 4px 0;}
+
+    /* Chat bubbles: Tiffy on the left in grey, the customer on the right in light orange */
+    [data-testid="stChatMessage"] {border-radius: 18px; padding: 8px 14px; background: #F5F5F7;
+                                   margin-right: 12%; gap: 10px;}
+    [class*="st-key-me_"] [data-testid="stChatMessage"] {background: #FFE6D5; flex-direction: row-reverse;
+                                                         margin-right: 0; margin-left: 12%;}
+    [data-testid="stChatMessage"] p {font-size: 0.95rem; line-height: 1.5;}
+
+    /* FAQ list: clean rows with thin dividers instead of boxes */
+    [data-testid="stExpander"] details {border: none; border-bottom: 1px solid #F0E4DA; border-radius: 0;}
+    [data-testid="stExpander"] summary {padding: 10px 2px; font-size: 0.93rem; font-weight: 600;}
+    [data-testid="stExpander"] summary:hover {color: #F26B1D;}
+    [data-testid="stExpanderDetails"] {padding: 0 2px 10px 2px;}
+    [data-testid="stExpanderDetails"] p {font-size: 0.9rem; color: #5C5C66; line-height: 1.55;}
+
+    /* Ticket counters as small tiles */
+    [data-testid="stMetric"] {background: #FFF6EF; border-radius: 14px; padding: 10px 14px;}
     </style>
     <div class="tg-header">
       <div class="tg-title">🍱 TiffinGo · Help &amp; Support</div>
@@ -124,59 +143,82 @@ def faq_answer(question):
 
 s = st.session_state  # short name for this visitor's memory
 
-# ---- 1. Passcode: the page opens only after the right passcode ----
-if not s.get("unlocked"):
-    _, middle, _ = st.columns([1, 2, 1])
-    with middle:
-        entered = st.text_input("Enter the passcode to open TiffinGo Support", type="password")
-        if entered:
-            if hmac.compare_digest(entered.encode(), os.environ["APP_PASSCODE"].encode()):
-                s["unlocked"] = True
-                st.rerun()
-            else:
-                st.error("That passcode is not right.")
-    st.stop()
+# ---- 1. Customer log-in: email + a one-time code (OTP) ----
+MAX_EMAILS = 5  # codes one visitor can ask for, so nobody can use the page to spam inboxes
+WAIT_SECONDS = 30  # wait before asking for a new code
 
-# ---- 2. Customer log-in: mobile number + 4-digit PIN ----
+
+def send_otp(email):
+    """Emails a fresh code and remembers only its hash. Returns an error message, or '' if it worked."""
+    if s.get("otp_sends", 0) >= MAX_EMAILS:
+        return "You've asked for too many codes. Please try again later."
+    if time.time() - s.get("otp_sent_at", 0) < WAIT_SECONDS:
+        return f"Please wait {WAIT_SECONDS} seconds before asking for a new code."
+    code = accounts.new_code()
+    try:
+        accounts.send_code(email, code)
+    except Exception as error:
+        print("Could not send the login email:", error)  # shows in the terminal / Streamlit Cloud logs
+        return "Sorry, we couldn't send the email right now. Please check the address and try again."
+    s.update(otp_email=email, otp_hash=accounts.scramble(code), otp_tries=0,
+             otp_sent_at=time.time(), otp_expires=time.time() + accounts.CODE_MINUTES * 60,
+             otp_sends=s.get("otp_sends", 0) + 1)
+    return ""
+
+
 if not s.get("customer"):
     _, middle, _ = st.columns([1, 2, 1])
     with middle:
         st.subheader("Log in to get help")
-        if s.get("wrong_pins", 0) >= 5:
-            st.error("Too many wrong PINs. Please close this page and try again later.")
-            st.stop()
 
-        phone = accounts.clean_phone(st.text_input("Mobile number", placeholder="10-digit mobile number"))
-        if phone:
-            if accounts.is_registered(phone):
-                pin = st.text_input("Your 4-digit PIN", type="password", max_chars=4)
-                if st.button("Log in", type="primary"):
-                    if accounts.check_pin(phone, pin):
-                        s["customer"] = phone
-                        st.rerun()
-                    else:
-                        s["wrong_pins"] = s.get("wrong_pins", 0) + 1
-                        st.error("That PIN doesn't match this number.")
-            else:
-                st.info("New here? Choose a 4-digit PIN. You'll use it to see your tickets next time.")
-                pin = st.text_input("Choose a 4-digit PIN", type="password", max_chars=4)
-                pin2 = st.text_input("Type the PIN again", type="password", max_chars=4)
-                if st.button("Create account", type="primary"):
-                    if not (pin.isdigit() and len(pin) == 4):
-                        st.error("The PIN must be exactly 4 digits.")
-                    elif pin != pin2:
-                        st.error("The two PINs don't match.")
-                    else:
-                        accounts.register(phone, pin)
-                        s["customer"] = phone
-                        st.rerun()
+        if "otp_email" not in s:
+            # Step 1: ask for the email and send the code.
+            st.caption("We'll email you a 6-digit code. No password needed.")
+            with st.form("email_form"):
+                typed_email = st.text_input("Your email", placeholder="you@example.com")
+                send = st.form_submit_button("Send OTP", type="primary")
+            if send:
+                email = accounts.clean_email(typed_email)
+                problem = send_otp(email) if email else "That doesn't look like an email address."
+                if problem:
+                    st.error(problem)
+                else:
+                    st.rerun()
         else:
-            st.caption("Enter a 10-digit Indian mobile number, e.g. 98765 43210.")
+            # Step 2: check the code they type.
+            st.success(f"We sent a 6-digit code to **{s['otp_email']}**. Check your inbox (and Spam).")
+            with st.form("otp_form"):
+                typed_code = st.text_input("Enter the 6-digit code", max_chars=6)
+                check = st.form_submit_button("Log in", type="primary")
+            if check:
+                if time.time() > s["otp_expires"]:
+                    st.error("This code has expired. Click Resend code to get a new one.")
+                elif s["otp_tries"] >= 5:
+                    st.error("Too many wrong codes. Click Resend code to get a new one.")
+                elif accounts.code_matches(typed_code, s["otp_hash"]):
+                    s["customer"] = s["otp_email"]
+                    for key in ("otp_email", "otp_hash", "otp_tries", "otp_expires"):
+                        s.pop(key, None)
+                    st.rerun()
+                else:
+                    s["otp_tries"] += 1
+                    st.error(f"That code isn't right. {5 - s['otp_tries']} tries left.")
+
+            c1, c2 = st.columns(2)
+            if c1.button("Resend code", type="tertiary"):
+                problem = send_otp(s["otp_email"])
+                if problem:
+                    st.error(problem)
+                else:
+                    st.toast("New code sent!")
+            if c2.button("Use a different email", type="tertiary"):
+                s.pop("otp_email", None)
+                st.rerun()
     st.stop()
 
 customer = s["customer"]
 
-# ---- 3. The chat ----
+# ---- 2. The chat ----
 with st.spinner("Starting Tiffy (the first start can take a minute)..."):
     runner = start_up()
 
@@ -279,17 +321,33 @@ left, right = st.columns([3, 2], gap="large")
 
 # ---- Left side: the chat window ----
 with left:
-    top_left, top_right = st.columns([3, 2])
-    top_left.caption(f"Logged in as +91 ••••••{customer[-4:]}")
+    top_left, top_right = st.columns([3, 2], vertical_alignment="center")
+    top_left.caption(f"Logged in as {customer[0]}•••@{customer.split('@')[1]}")
     with top_right:
         b1, b2 = st.columns(2)
-        b1.button("End chat", on_click=close_chat, disabled=s["closed"], width="stretch")
-        b2.button("Log out", on_click=log_out, width="stretch")
+        b1.button("End chat", on_click=close_chat, disabled=s["closed"], type="tertiary", width="stretch")
+        b2.button("Log out", on_click=log_out, type="tertiary", width="stretch")
 
-    chat_box = st.container(height=470)
+    # ---- Quick-help buttons, above the chat like suggestion chips ----
+    if not s["closed"]:
+        q1, q2, q3, q4 = st.columns(4)
+        q1.button("📦 Track order", on_click=ask, args=("I want to track my order.",), width="stretch")
+        q2.button("💸 Refund / cancel", on_click=ask, args=("I want to cancel my order or get a refund.",),
+                  width="stretch")
+        q3.button("🕒 Delivery hours", on_click=ask,
+                  args=("What are your delivery hours?", faq_answer("What are your delivery hours?")),
+                  width="stretch")
+        q4.button("👩‍💼 Talk to agent", on_click=connect_agent, width="stretch")
+
+    def bubble(role, key):
+        """One chat bubble. The customer's bubbles get a key starting with "me_" so the style puts them on the right."""
+        with st.container(key=("me_" if role == "user" else "bot_") + str(key)):
+            return st.chat_message(role, avatar="🍱" if role == "assistant" else "🙂")
+
+    chat_box = st.container(height=420)
     with chat_box:
-        for m in s["messages"]:
-            with st.chat_message(m["role"], avatar="🍱" if m["role"] == "assistant" else "🙂"):
+        for i, m in enumerate(s["messages"]):
+            with bubble(m["role"], i):
                 st.markdown(m["text"])
         # After the 40-second check-in, offer the two choices as buttons.
         if not s["closed"] and s["messages"][-1]["text"] == NUDGE:
@@ -317,26 +375,18 @@ with left:
             st.success("Thank you for your rating! 🧡")
         st.button("Start a new chat", type="primary", on_click=new_chat)
     else:
-        # ---- Quick-action buttons and the message box ----
-        q1, q2, q3, q4 = st.columns(4)
-        q1.button("📦 Track my order", on_click=ask, args=("I want to track my order.",), width="stretch")
-        q2.button("💸 Refund / cancel", on_click=ask, args=("I want to cancel my order or get a refund.",),
-                  width="stretch")
-        q3.button("🕒 Delivery hours", on_click=ask,
-                  args=("What are your delivery hours?", faq_answer("What are your delivery hours?")),
-                  width="stretch")
-        q4.button("👩‍💼 Talk to an agent", on_click=connect_agent, width="stretch")
-
+        # ---- The message box, right under the chat ----
         typed = st.chat_input("Type your message to Tiffy...")
         question, instant_answer = (typed, None) if typed else s.pop("pending", (None, None))
 
         if question:
             s["messages"].append({"role": "user", "text": question})
             s["nudged"] = False  # the customer spoke, so Tiffy may check in again after the next silence
+            n = len(s["messages"])
             with chat_box:
-                with st.chat_message("user", avatar="🙂"):
+                with bubble("user", n):
                     st.markdown(question)
-                with st.chat_message("assistant", avatar="🍱"):
+                with bubble("assistant", n + 1):
                     if instant_answer:
                         st.markdown(instant_answer)  # straight from the help docs, no waiting
                         answer = instant_answer
@@ -363,7 +413,7 @@ with right:
     help_tab, tickets_tab = st.tabs(["❓ Help topics", "🎫 My tickets"])
 
     with help_tab:
-        with st.container(height=560):
+        with st.container(height=560, border=False):
             entries = help_entries()
             faqs = {t[len("FAQ: "):]: a for t, a in entries if t.startswith("FAQ: ")}
             policies = [(t, a) for t, a in entries if not t.startswith("FAQ: ")]
@@ -374,14 +424,14 @@ with right:
                 groups["💬 Other questions"] = others
 
             for topic, questions in groups.items():
-                st.markdown(f"**{topic}**")
+                st.markdown(f'<div class="tg-label">{topic}</div>', unsafe_allow_html=True)
                 for q in questions:
                     if q in faqs:
                         with st.expander(q):
                             st.markdown(faqs[q])
-                            st.button("Ask Tiffy about this", key=f"faq_{q}", on_click=ask,
+                            st.button("Ask Tiffy →", key=f"faq_{q}", on_click=ask, type="tertiary",
                                       args=(q, faq_answer(q)), disabled=s["closed"])
-            st.markdown("**📜 Policies**")
+            st.markdown('<div class="tg-label">📜 Policies</div>', unsafe_allow_html=True)
             for title, text in policies:
                 with st.expander(title):
                     st.markdown(text)
