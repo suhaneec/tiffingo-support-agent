@@ -1,5 +1,5 @@
 """
-TiffinGo Support: the chat page for Tiffy, made with Streamlit.
+TiffinGo Support: the Help Centre page with Tiffy, made with Streamlit.
 
 Run it on your laptop:
     Mac:      .venv/bin/streamlit run app.py
@@ -10,9 +10,9 @@ Settings (GOOGLE_API_KEY, GEMINI_MODEL, OTP_EMAIL_ADDRESS, OTP_EMAIL_APP_PASSWOR
 - online (Streamlit Community Cloud) they come from the app's Secrets.
 
 What the page does, in order:
-1. Customer log-in (email + a one-time code sent by email)  2. Chat with Tiffy,
-with help topics and "My tickets" on the right, a check-in after 40 seconds of
-silence, and star ratings when the chat ends.
+1. Customer log-in (email + a one-time code sent by email)
+2. Chat with Tiffy (big chat panel), with the help centre and "My tickets" on the right,
+   a check-in after 40 seconds of silence, and star ratings when the chat ends.
 """
 
 import asyncio
@@ -23,7 +23,7 @@ import uuid
 import streamlit as st
 from dotenv import load_dotenv
 
-st.set_page_config(page_title="TiffinGo Support", page_icon="🍱", layout="wide")
+st.set_page_config(page_title="TiffinGo Help Centre", page_icon="🍱", layout="wide")
 
 # ---- 0. Settings: .env on the laptop, Streamlit secrets online ----
 SETTINGS = ("GOOGLE_API_KEY", "GEMINI_MODEL", "OTP_EMAIL_ADDRESS", "OTP_EMAIL_APP_PASSWORD")
@@ -52,111 +52,148 @@ from support_agent.tickets import close_ticket, customer_tickets, save_rating, s
 
 APP_NAME = "tiffingo_support"
 IDLE_SECONDS = 40  # Tiffy checks in after this many seconds of silence
-NUDGE = "Are you still there? 👀 Would you like me to connect you to an agent, or shall I close this chat?"
+NUDGE = "Are you still there? Would you like me to connect you to an agent, or shall I close this chat?"
 
-# FAQ groups for the "Help topics" panel. Questions not listed here go under "Other questions".
+# Icons (Google's clean "material" line icons instead of emojis)
+TIFFY_AVATAR = ":material/support_agent:"
+CUSTOMER_AVATAR = ":material/person:"
+
+# FAQ groups for the help centre. Questions not listed here go under "Other questions".
 TOPICS = {
-    "🛵 Orders & delivery": [
+    "Orders & delivery": [
         "What areas do you deliver to?", "What are your delivery hours?", "Is there a minimum order value?",
         "How much is the delivery fee?", "How long does delivery take?", "How do I track my order?",
         "Can I schedule an order for later?",
     ],
-    "💳 Payments, cancellations & refunds": [
+    "Payments, cancellations & refunds": [
         "Which payment methods do you accept?", "Can I cancel my order?", "How long do refunds take?",
         "How do coupons work?", "My food arrived cold or spilled. What do I do?", "An item was missing from my order.",
     ],
-    "🍱 Tiffin plans": ["Do you have a monthly tiffin plan?", "Can I pause my tiffin plan?"],
-    "🥗 Food & allergens": ["Is the food vegetarian?", "Do you show allergen details?", "Can I ask for less spice?"],
-    "👤 Account & partners": ["How do I change my phone number?", "Can I list my home kitchen on TiffinGo?"],
+    "Tiffin plans": ["Do you have a monthly tiffin plan?", "Can I pause my tiffin plan?"],
+    "Food & allergens": ["Is the food vegetarian?", "Do you show allergen details?", "Can I ask for less spice?"],
+    "Account & partners": ["How do I change my phone number?", "Can I list my home kitchen on TiffinGo?"],
 }
 
-# ---- Look and feel: orange food-delivery style (colours are in .streamlit/config.toml) ----
+# The TiffinGo logo: an orange rounded square with a white three-tier tiffin box (drawn as SVG).
+LOGO = """
+<svg width="38" height="38" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
+  <rect width="38" height="38" rx="11" fill="#F26B1D"/>
+  <path d="M14 12V9.5a2.5 2.5 0 0 1 2.5-2.5h5a2.5 2.5 0 0 1 2.5 2.5V12" fill="none" stroke="#fff" stroke-width="2.2"/>
+  <rect x="9.5" y="12" width="19" height="6.5" rx="2.4" fill="#fff"/>
+  <rect x="9.5" y="20" width="19" height="6.5" rx="2.4" fill="#fff" opacity="0.88"/>
+  <rect x="9.5" y="28" width="19" height="4" rx="2" fill="#fff" opacity="0.72"/>
+</svg>
+"""
+
+# ---- Look and feel (colours and fonts are in .streamlit/config.toml) ----
 st.markdown(
     """
     <style>
-    /* ===== Theme "Masala Sunset": warm cream page, soft abstract shapes, white cards ===== */
-
-    /* Abstract background: soft coloured glows + a faint dot pattern, fixed behind everything */
+    /* Soft warm background (fixed, so it stays put when you scroll) */
     .stApp {
         background:
-            radial-gradient(650px circle at 6% 8%, rgba(255, 154, 82, 0.30), transparent 60%),
-            radial-gradient(520px circle at 96% 14%, rgba(255, 200, 87, 0.28), transparent 60%),
-            radial-gradient(720px circle at 88% 96%, rgba(110, 200, 160, 0.20), transparent 60%),
-            radial-gradient(560px circle at 4% 94%, rgba(242, 107, 29, 0.16), transparent 60%),
-            #FFF9F3;
+            radial-gradient(900px circle at 0% 0%, rgba(255, 160, 100, 0.16), transparent 60%),
+            radial-gradient(800px circle at 100% 100%, rgba(255, 196, 120, 0.14), transparent 60%),
+            #FBF8F5;
         background-attachment: fixed;
-        isolation: isolate;
     }
-    .stApp::before {
-        content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-        background-image: radial-gradient(rgba(242, 107, 29, 0.13) 1.2px, transparent 1.2px);
-        background-size: 24px 24px;
-    }
-    [data-testid="stHeader"] {background: transparent;}  /* Streamlit's top bar: see-through */
+    header[data-testid="stHeader"] {display: none;}  /* hide Streamlit's own top bar */
 
-    /* Page spacing (room at the top so the title isn't hidden under Streamlit's toolbar) */
-    .block-container {padding-top: 3.6rem; padding-bottom: 1.5rem; max-width: 1320px;}
+    /* Full width, with room for the fixed top bar */
+    .block-container {max-width: 100%; padding: 88px 2rem 1rem 2rem;}
 
-    /* Orange title bar with two decorative circles */
-    .tg-header {position: relative; overflow: hidden; color: white; margin-bottom: 20px;
-                padding: 22px 28px; border-radius: 22px;
-                background: linear-gradient(110deg, #E85A0C 0%, #F26B1D 45%, #FFA25C 100%);
-                box-shadow: 0 10px 30px rgba(242, 107, 29, 0.25);}
-    .tg-header::before, .tg-header::after {content: ""; position: absolute; border-radius: 50%;
-                background: rgba(255, 255, 255, 0.14);}
-    .tg-header::before {width: 220px; height: 220px; right: -60px; top: -90px;}
-    .tg-header::after {width: 130px; height: 130px; right: 150px; bottom: -80px;}
-    .tg-title {font-family: "Poppins", sans-serif; font-size: 2rem; font-weight: 800; line-height: 1.2;}
-    .tg-sub {font-size: 1.02rem; opacity: 0.95; margin-top: 4px;}
+    /* Fixed top bar with the logo and app name: it never scrolls away */
+    .tg-nav {position: fixed; top: 0; left: 0; right: 0; height: 66px; z-index: 1000;
+             display: flex; align-items: center; justify-content: space-between; padding: 0 2rem;
+             background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px);
+             border-bottom: 1px solid #EFE7E0; box-shadow: 0 2px 14px rgba(40, 20, 0, 0.05);}
+    .tg-brand {display: flex; align-items: center; gap: 12px;}
+    .tg-word {font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.45rem; font-weight: 800;
+              color: #1E1E28; letter-spacing: -0.02em;}
+    .tg-divider {width: 1px; height: 24px; background: #E2D9D1;}
+    .tg-area {font-size: 1.02rem; font-weight: 600; color: #6B6B76;}
+    .tg-nav-right {font-size: 0.9rem; color: #6B6B76;}
+    .tg-nav-right b {color: #1E1E28;}
 
-    /* Big section headings */
-    .tg-section {font-family: "Poppins", sans-serif; font-size: 1.45rem; font-weight: 700;
-                 color: #2B2B33; margin: 4px 0 10px 0;}
+    /* Page headings */
+    .tg-h1 {font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.85rem; font-weight: 800;
+            color: #1E1E28; letter-spacing: -0.02em; margin: 0;}
+    .tg-lead {font-size: 1.02rem; color: #6B6B76; margin: 2px 0 0 0;}
+    .tg-label {font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+               color: #9A6A4A; margin: 18px 0 4px 0;}
 
-    /* Small orange labels (FAQ topics) */
-    .tg-label {font-size: 0.8rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
-               color: #E85A0C; margin: 18px 0 4px 0;}
+    /* White cards: the chat panel, the help centre panel and the sign-in form */
+    .st-key-chatcard, .st-key-sidepanel, [data-testid="stForm"] {
+        background: #FFFFFF; border: 1px solid #EFE7E0 !important; border-radius: 18px !important;
+        box-shadow: 0 6px 24px rgba(40, 20, 0, 0.06);}
+    .st-key-chatcard {padding: 0 0 14px 0; gap: 0.6rem;}
+    .st-key-sidepanel {padding: 6px 20px 14px 20px;}
+    [data-testid="stForm"] {padding: 26px 28px;}
 
-    /* White cards: the chat window, the right-hand panel and the login form */
-    .st-key-chatbox, .st-key-sidepanel, [data-testid="stForm"] {
-        background: #FFFFFF; border: 1px solid #F3E6DB !important; border-radius: 22px !important;
-        box-shadow: 0 8px 28px rgba(120, 60, 20, 0.08);}
-    .st-key-sidepanel {padding: 8px 18px 12px 18px;}
-    [data-testid="stForm"] {padding: 22px 24px;}
+    /* Chat panel header strip */
+    .tg-chat-head {display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+                   border-bottom: 1px solid #F1EAE4;}
+    .tg-chat-name {font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.1rem; font-weight: 700; color: #1E1E28;}
+    .tg-chat-status {font-size: 0.86rem; color: #6B6B76;}
+    .tg-dot {display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22A35A;
+             margin-right: 6px; vertical-align: middle;}
+    .st-key-chatcard > div:not(.st-key-chathead) {padding-left: 20px; padding-right: 20px;}
+    .st-key-chathead {padding: 0 !important;}
 
-    /* Login page: big welcome heading */
-    .tg-hero h1 {font-family: "Poppins", sans-serif; font-size: 2.9rem; font-weight: 800;
-                 line-height: 1.15; color: #2B2B33; padding: 0; margin: 10px 0 14px 0;}
-    .tg-hero h1 span {color: #F26B1D;}
-    .tg-hero p {font-size: 1.15rem; color: #4A4A55; line-height: 1.6; margin-bottom: 18px;}
-    .tg-point {font-size: 1.05rem; color: #2B2B33; margin: 8px 0;}
-    .tg-point b {color: #E85A0C;}
+    /* The chat messages area: tall, fills the screen, never scrolls sideways */
+    .st-key-chatbox {height: calc(100vh - 330px) !important; min-height: 380px; overflow-x: hidden !important;}
 
-    /* Tabs: bigger and bolder */
-    button[data-baseweb="tab"] p {font-size: 1.08rem; font-weight: 700;}
+    /* Chat bubbles: Tiffy on the left in grey, the customer on the right in solid orange */
+    [data-testid="stChatMessage"] {width: fit-content; max-width: 78%; background: #F4F1EE;
+                                   border-radius: 6px 18px 18px 18px; padding: 10px 16px; gap: 10px;}
+    [class*="st-key-me_"] [data-testid="stChatMessage"] {margin-left: auto; flex-direction: row-reverse;
+                                                         background: #F26B1D; border-radius: 18px 6px 18px 18px;}
+    [class*="st-key-me_"] [data-testid="stChatMessage"] p {color: #FFFFFF;}
+    [data-testid="stChatMessage"] p {font-size: 1rem; line-height: 1.55; color: #2A2A33;}
 
-    /* Chat bubbles: Tiffy on the left in soft grey, the customer on the right in light orange */
-    [data-testid="stChatMessage"] {border-radius: 18px; padding: 10px 16px; background: #F6F4F2;
-                                   margin-right: 12%; gap: 10px;}
-    [class*="st-key-me_"] [data-testid="stChatMessage"] {background: #FFE3CF; flex-direction: row-reverse;
-                                                         margin-right: 0; margin-left: 12%;}
-    [data-testid="stChatMessage"] p {font-size: 1rem; line-height: 1.55; color: #2B2B33;}
+    /* Quick-reply chips */
+    .st-key-chips button {background: #FFF6EF; border: 1px solid #F5CFB4; color: #B9500F;
+                          font-weight: 600; min-height: 36px;}
+    .st-key-chips button:hover {background: #F26B1D; border-color: #F26B1D; color: #FFFFFF;}
 
-    /* FAQ list: clean rows with thin dividers instead of boxes */
-    [data-testid="stExpander"] details {border: none; border-bottom: 1px solid #F0E4DA; border-radius: 0;
+    /* Tabs */
+    button[data-baseweb="tab"] p {font-size: 1.05rem; font-weight: 700;}
+
+    /* Help centre list: clean rows with thin dividers */
+    [data-testid="stExpander"] details {border: none; border-bottom: 1px solid #F1EAE4; border-radius: 0;
                                         background: transparent;}
     [data-testid="stExpander"] summary {padding: 11px 2px;}
-    [data-testid="stExpander"] summary p {font-size: 1rem; font-weight: 600;}
+    [data-testid="stExpander"] summary p {font-size: 0.98rem; font-weight: 600;}
     [data-testid="stExpander"] summary:hover p {color: #F26B1D;}
     [data-testid="stExpanderDetails"] {padding: 0 2px 12px 2px;}
-    [data-testid="stExpanderDetails"] p {font-size: 0.97rem; color: #45454F; line-height: 1.6;}
+    [data-testid="stExpanderDetails"] p {font-size: 0.96rem; color: #45454F; line-height: 1.6;}
+    .st-key-faqlist {height: calc(100vh - 290px) !important; min-height: 380px;}
 
-    /* Ticket counters as small orange tiles */
-    [data-testid="stMetric"] {background: #FFF3E9; border-radius: 16px; padding: 12px 16px;}
+    /* Ticket counters as tiles */
+    [data-testid="stMetric"] {background: #FFF6EF; border-radius: 14px; padding: 12px 16px;}
+
+    /* Sign-in page */
+    .tg-hero h1 {font-family: "Plus Jakarta Sans", sans-serif; font-size: 3rem; font-weight: 800;
+                 line-height: 1.12; letter-spacing: -0.03em; color: #1E1E28; padding: 0; margin: 0 0 16px 0;}
+    .tg-hero h1 span {color: #F26B1D;}
+    .tg-hero p {font-size: 1.15rem; color: #55555F; line-height: 1.65; margin: 0 0 28px 0; max-width: 560px;}
+    .tg-facts {display: flex; gap: 14px; flex-wrap: wrap;}
+    .tg-fact {background: #FFFFFF; border: 1px solid #EFE7E0; border-radius: 14px; padding: 14px 18px;
+              min-width: 160px; box-shadow: 0 4px 16px rgba(40, 20, 0, 0.04);}
+    .tg-fact b {display: block; font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.25rem; color: #F26B1D;}
+    .tg-fact span {font-size: 0.9rem; color: #6B6B76;}
     </style>
-    <div class="tg-header">
-      <div class="tg-title">🍱 TiffinGo · Help &amp; Support</div>
-      <div class="tg-sub">Chat with Tiffy · usually replies in a few seconds</div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# The fixed top bar (shown on every page)
+st.markdown(
+    f"""
+    <div class="tg-nav">
+      <div class="tg-brand">{LOGO}<span class="tg-word">TiffinGo</span>
+        <span class="tg-divider"></span><span class="tg-area">Help Centre</span></div>
+      <div class="tg-nav-right">Support hours <b>11 AM – 11 PM</b>, all days</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -217,31 +254,32 @@ def send_otp(email):
 
 
 if not s.get("customer"):
-    hero, middle = st.columns([1.15, 1], gap="large", vertical_alignment="center")
+    st.write("")  # a little space under the top bar
+    hero, _, card = st.columns([1.25, 0.1, 0.9], vertical_alignment="center")
     with hero:
-        # Big welcome text on the left
         st.markdown(
             """
             <div class="tg-hero">
-              <h1>Hungry? Stuck?<br><span>We've got you.</span></h1>
-              <p>Track orders, sort out refunds, manage your tiffin plan, and get answers in seconds
-                 from Tiffy, your TiffinGo helper.</p>
-              <div class="tg-point"><b>✓</b> Instant answers from our help centre</div>
-              <div class="tg-point"><b>✓</b> A real person when you need one</div>
-              <div class="tg-point"><b>✓</b> Your tickets stay private to you</div>
+              <h1>Support for every<br><span>TiffinGo</span> order.</h1>
+              <p>Track deliveries, manage your tiffin plan, and resolve payment or refund questions
+                 with Tiffy, our support assistant. When you need a person, our team takes over.</p>
+              <div class="tg-facts">
+                <div class="tg-fact"><b>Instant</b><span>answers from our help centre</span></div>
+                <div class="tg-fact"><b>24 hours</b><span>for a reply from our team</span></div>
+                <div class="tg-fact"><b>Private</b><span>your tickets, only for you</span></div>
+              </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    with middle:
-        st.markdown('<div class="tg-section">Log in to get help</div>', unsafe_allow_html=True)
-
+    with card:
         if "otp_email" not in s:
             # Step 1: ask for the email and send the code.
-            st.caption("We'll email you a 6-digit code. No password needed.")
             with st.form("email_form"):
-                typed_email = st.text_input("Your email", placeholder="you@example.com")
-                send = st.form_submit_button("Send OTP", type="primary")
+                st.markdown("### Sign in")
+                st.caption("Enter your email and we'll send you a 6-digit code. No password needed.")
+                typed_email = st.text_input("Email address", placeholder="you@example.com")
+                send = st.form_submit_button("Send code", type="primary", width="stretch")
             if send:
                 email = accounts.clean_email(typed_email)
                 problem = send_otp(email) if email else "That doesn't look like an email address."
@@ -251,10 +289,11 @@ if not s.get("customer"):
                     st.rerun()
         else:
             # Step 2: check the code they type.
-            st.success(f"We sent a 6-digit code to **{s['otp_email']}**. Check your inbox (and Spam).")
             with st.form("otp_form"):
-                typed_code = st.text_input("Enter the 6-digit code", max_chars=6)
-                check = st.form_submit_button("Log in", type="primary")
+                st.markdown("### Enter your code")
+                st.caption(f"We sent a 6-digit code to {s['otp_email']}. Check your inbox and spam folder.")
+                typed_code = st.text_input("6-digit code", max_chars=6)
+                check = st.form_submit_button("Sign in", type="primary", width="stretch")
             if check:
                 if time.time() > s["otp_expires"]:
                     st.error("This code has expired. Click Resend code to get a new one.")
@@ -275,7 +314,7 @@ if not s.get("customer"):
                 if problem:
                     st.error(problem)
                 else:
-                    st.toast("New code sent!")
+                    st.toast("New code sent.")
             if c2.button("Use a different email", type="tertiary"):
                 s.pop("otp_email", None)
                 st.rerun()
@@ -370,7 +409,7 @@ def connect_agent():
     summary = said[-1] if said else "Customer asked to talk to an agent."
     s["messages"].append({"role": "user", "text": "Connect me to an agent, please."})
     ticket_id = save_ticket(customer, summary, "asked for a person")
-    bot_says(f"Done! I've raised ticket **{ticket_id}**. A person from our team will reply within 24 hours. 🙏")
+    bot_says(f"Done. I've raised ticket **{ticket_id}**. A person from our team will reply within 24 hours.")
 
 
 def close_chat():
@@ -382,49 +421,54 @@ def log_out():
         s.pop(key, None)
 
 
-left, right = st.columns([3, 2], gap="large")
+def bubble(role, key):
+    """One chat bubble. The customer's bubbles get a key starting with "me_" so the style puts them on the right."""
+    with st.container(key=("me_" if role == "user" else "bot_") + str(key)):
+        return st.chat_message(role, avatar=TIFFY_AVATAR if role == "assistant" else CUSTOMER_AVATAR)
 
-# ---- Left side: the chat window ----
-with left:
-    top_left, top_right = st.columns([3, 2], vertical_alignment="center")
-    top_left.markdown('<div class="tg-section">💬 Chat with Tiffy</div>', unsafe_allow_html=True)
-    top_left.caption(f"Logged in as {customer[0]}•••@{customer.split('@')[1]}")
-    with top_right:
-        b1, b2 = st.columns(2)
-        b1.button("End chat", on_click=close_chat, disabled=s["closed"], type="tertiary", width="stretch")
-        b2.button("Log out", on_click=log_out, type="tertiary", width="stretch")
 
-    # ---- Quick-help buttons, above the chat like suggestion chips ----
-    if not s["closed"]:
-        q1, q2, q3, q4 = st.columns(4)
-        q1.button("📦 Track order", on_click=ask, args=("I want to track my order.",), width="stretch")
-        q2.button("💸 Refund / cancel", on_click=ask, args=("I want to cancel my order or get a refund.",),
-                  width="stretch")
-        q3.button("🕒 Delivery hours", on_click=ask,
-                  args=("What are your delivery hours?", faq_answer("What are your delivery hours?")),
-                  width="stretch")
-        q4.button("👩‍💼 Talk to agent", on_click=connect_agent, width="stretch")
+# Page heading row: title on the left, who is signed in and Log out on the right
+title_col, user_col = st.columns([3, 1], vertical_alignment="center")
+title_col.markdown(
+    '<p class="tg-h1">How can we help you today?</p>'
+    '<p class="tg-lead">Chat with Tiffy, browse the help centre, or check your tickets.</p>',
+    unsafe_allow_html=True,
+)
+with user_col.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center"):
+    st.caption(f"Signed in as {customer[0]}•••@{customer.split('@')[1]}")
+    st.button("Log out", on_click=log_out, type="tertiary", icon=":material/logout:")
 
-    def bubble(role, key):
-        """One chat bubble. The customer's bubbles get a key starting with "me_" so the style puts them on the right."""
-        with st.container(key=("me_" if role == "user" else "bot_") + str(key)):
-            return st.chat_message(role, avatar="🍱" if role == "assistant" else "🙂")
+left, right = st.columns([1.8, 1], gap="medium")
 
-    chat_box = st.container(height=420, key="chatbox")  # "chatbox" gets the white card style
+# ---- Left: the big chat panel ----
+with left, st.container(key="chatcard"):  # "chatcard" gets the white card style
+    # Header strip: Tiffy's name and status, End chat on the right
+    with st.container(key="chathead"):
+        head_text, head_button = st.columns([4, 1], vertical_alignment="center")
+        head_text.markdown(
+            f"""<div class="tg-chat-head">{LOGO}<div><div class="tg-chat-name">Tiffy · TiffinGo Support</div>
+            <div class="tg-chat-status"><span class="tg-dot"></span>Online · usually replies in a few seconds</div>
+            </div></div>""",
+            unsafe_allow_html=True,
+        )
+        head_button.button("End chat", on_click=close_chat, disabled=s["closed"], type="tertiary",
+                           icon=":material/close:")
+
+    chat_box = st.container(height=520, key="chatbox", border=False, autoscroll=True)
     with chat_box:
         for i, m in enumerate(s["messages"]):
             with bubble(m["role"], i):
                 st.markdown(m["text"])
         # After the 40-second check-in, offer the two choices as buttons.
         if not s["closed"] and s["messages"][-1]["text"] == NUDGE:
-            c1, c2 = st.columns(2)
-            c1.button("👩‍💼 Connect me to an agent", on_click=connect_agent, width="stretch")
-            c2.button("✅ Close chat", on_click=close_chat, width="stretch")
+            with st.container(horizontal=True):
+                st.button("Connect me to an agent", on_click=connect_agent, icon=":material/support_agent:")
+                st.button("Close chat", on_click=close_chat, icon=":material/check_circle:")
 
     if s["closed"]:
         # ---- Ratings when the chat has ended ----
         if not s["rated"]:
-            st.markdown("#### Chat ended. How did we do?")
+            st.markdown("#### Rate your experience")
             st.write("How was your chat with Tiffy?")
             chat_stars = st.feedback("stars", key=f"chat_stars_{s['session_id']}")
             st.write("Was your problem solved?")
@@ -438,11 +482,21 @@ with left:
                     s["rated"] = True
                     st.rerun()
         else:
-            st.success("Thank you for your rating! 🧡")
-        st.button("Start a new chat", type="primary", on_click=new_chat)
+            st.success("Thank you for your feedback.")
+        st.button("Start a new chat", type="primary", on_click=new_chat, icon=":material/chat:")
     else:
-        # ---- The message box, right under the chat ----
-        typed = st.chat_input("Type your message to Tiffy...")
+        # ---- Quick-reply chips, then the message box ----
+        with st.container(horizontal=True, key="chips", gap="small"):
+            st.button("Track my order", on_click=ask, args=("I want to track my order.",),
+                      icon=":material/local_shipping:")
+            st.button("Cancel or refund", on_click=ask, args=("I want to cancel my order or get a refund.",),
+                      icon=":material/currency_rupee:")
+            st.button("Delivery hours", on_click=ask,
+                      args=("What are your delivery hours?", faq_answer("What are your delivery hours?")),
+                      icon=":material/schedule:")
+            st.button("Talk to an agent", on_click=connect_agent, icon=":material/support_agent:")
+
+        typed = st.chat_input("Type your message...")
         question, instant_answer = (typed, None) if typed else s.pop("pending", (None, None))
 
         if question:
@@ -474,12 +528,12 @@ with left:
 
         idle_check()
 
-# ---- Right side: help topics and the customer's own tickets (drawn last, so new tickets show) ----
+# ---- Right: help centre and the customer's own tickets (drawn last, so new tickets show) ----
 with right, st.container(key="sidepanel"):  # "sidepanel" gets the white card style
-    help_tab, tickets_tab = st.tabs(["❓ Help topics", "🎫 My tickets"])
+    help_tab, tickets_tab = st.tabs(["Help centre", "My tickets"])
 
     with help_tab:
-        with st.container(height=560, border=False):
+        with st.container(height=560, border=False, key="faqlist"):
             entries = help_entries()
             faqs = {t[len("FAQ: "):]: a for t, a in entries if t.startswith("FAQ: ")}
             policies = [(t, a) for t, a in entries if not t.startswith("FAQ: ")]
@@ -487,7 +541,7 @@ with right, st.container(key="sidepanel"):  # "sidepanel" gets the white card st
             groups = dict(TOPICS)
             others = [q for q in faqs if q not in listed]
             if others:
-                groups["💬 Other questions"] = others
+                groups["Other questions"] = others
 
             for topic, questions in groups.items():
                 st.markdown(f'<div class="tg-label">{topic}</div>', unsafe_allow_html=True)
@@ -495,9 +549,10 @@ with right, st.container(key="sidepanel"):  # "sidepanel" gets the white card st
                     if q in faqs:
                         with st.expander(q):
                             st.markdown(faqs[q])
-                            st.button("Ask Tiffy →", key=f"faq_{q}", on_click=ask, type="tertiary",
-                                      args=(q, faq_answer(q)), disabled=s["closed"])
-            st.markdown('<div class="tg-label">📜 Policies</div>', unsafe_allow_html=True)
+                            st.button("Ask Tiffy about this", key=f"faq_{q}", on_click=ask, type="tertiary",
+                                      args=(q, faq_answer(q)), disabled=s["closed"],
+                                      icon=":material/arrow_forward:")
+            st.markdown('<div class="tg-label">Policies</div>', unsafe_allow_html=True)
             for title, text in policies:
                 with st.expander(title):
                     st.markdown(text)
@@ -514,10 +569,12 @@ with right, st.container(key="sidepanel"):  # "sidepanel" gets the white card st
             st.caption("You have no tickets yet. If Tiffy hands you over to a person, your ticket shows here.")
         for t in tickets:
             with st.container(border=True):
-                status = "🟠 Open" if t["status"] == "open" else "✅ Closed"
-                flag = "🔴 High priority" if t["priority"] == "high" else "Normal priority"
-                st.markdown(f"**{t['ticket_id']}** · {status} · {flag}  \n"
-                            f"**{t['reason'].capitalize()}**  \n_{t['message']}_  \n{t['time']}")
+                status = ":orange-badge[Open]" if t["status"] == "open" else ":green-badge[Closed]"
+                flag = ":red-badge[High priority]" if t["priority"] == "high" else ":gray-badge[Normal]"
+                st.markdown(f"**{t['ticket_id']}** &nbsp; {status} {flag}  \n"
+                            f"**{t['reason'].capitalize()}**  \n{t['message']}  \n"
+                            f":gray[{t['time']}]")
                 if t["status"] == "open":
-                    st.button("Mark as resolved", key=f"close_{t['ticket_id']}",
-                              on_click=close_ticket, args=(t["ticket_id"], customer))
+                    st.button("Mark as resolved", key=f"close_{t['ticket_id']}", type="tertiary",
+                              on_click=close_ticket, args=(t["ticket_id"], customer),
+                              icon=":material/task_alt:")

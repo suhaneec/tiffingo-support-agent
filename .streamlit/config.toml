@@ -1,23 +1,23 @@
-# The look of the TiffinGo Support page: theme "Masala Sunset" (warm cream, orange, white cards).
+# The look of the TiffinGo Help Centre: clean and professional, warm off-white, TiffinGo orange.
 [theme]
 base = "light"
 
 # Colours
 primaryColor = "#F26B1D"              # TiffinGo orange: buttons, links, active tab
-backgroundColor = "#FFF9F3"           # page (warm cream)
-secondaryBackgroundColor = "#FFF6EF"  # light orange: chat box, inputs, tiles
-textColor = "#2B2B33"                 # main text (soft black)
-grayTextColor = "#7A7A85"             # small grey text
-borderColor = "#F0E4DA"               # thin, warm borders
+backgroundColor = "#FBF8F5"           # page (warm off-white)
+secondaryBackgroundColor = "#FAF5F1"  # inputs and light panels
+textColor = "#2A2A33"                 # main text (soft black)
+grayTextColor = "#6B6B76"             # small grey text
+borderColor = "#EFE7E0"               # thin, warm borders
 linkColor = "#F26B1D"
 
-# Text: friendly rounded font for reading, bold Poppins for headings
-font = "Nunito Sans:https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap"
-headingFont = "Poppins:https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
-baseFontSize = 16
+# Text: Inter for reading, Plus Jakarta Sans for headings (both are business-style fonts)
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+baseFontSize = 15
 headingFontWeights = [800, 700, 700, 700, 700, 700]
 metricValueFontSize = "1.6rem"
-metricValueFontWeight = 800
+metricValueFontWeight = 700
 
 # Shapes
 baseRadius = "0.75rem"   # rounded corners on boxes and inputs
