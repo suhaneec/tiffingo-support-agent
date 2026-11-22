@@ -1,0 +1,13 @@
+order_id,customer_name,phone_last4,items,status,order_time,amount_inr
+TG1001,Priya Menon,6901,Veg Thali,Out for delivery,20-Nov-2026 12:45 PM,205
+TG1002,Ananya Iyer,5186,Rajma Chawal x2,Delivered,19-Nov-2026 12:20 PM,285
+TG1003,Arjun Reddy,2859,Paneer Butter Masala + 4 Roti,Delivered,18-Nov-2026 1:10 PM,265
+TG1004,Riya Bose,2367,Chicken Curry + Rice,Cancelled,17-Nov-2026 12:20 PM,315
+TG1005,Aarav Mehta,1672,Dal Khichdi,Preparing,20-Nov-2026 9:15 PM,175
+TG1006,Pooja Verma,7081,Aloo Paratha x2 + Curd,Out for delivery,20-Nov-2026 1:40 PM,195
+TG1007,Sana Khan,5957,Egg Curry + 3 Roti,Preparing,20-Nov-2026 1:40 PM,215
+TG1008,Diya Sharma,9463,Chole Bhature,Delivered,19-Nov-2026 9:15 PM,185
+TG1009,Kabir Singh,6709,Veg Biryani x2,Cancelled,17-Nov-2026 8:05 PM,340
+TG1010,Ishaan Gupta,7143,Sambar Rice + Papad,Delivered,18-Nov-2026 8:40 PM,175
+TG1011,Manish Yadav,4750,Fish Curry + Rice,Delivered,19-Nov-2026 9:15 PM,320
+TG1012,Meera Nair,2093,Mini Thali x3,Out for delivery,20-Nov-2026 12:20 PM,420

@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Bash(cp .env.example .env)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(python3.13 -m venv .venv)",
+      "Bash(python -m venv .venv)",
+      "Bash(py -3.13 -m venv .venv)",
+      "Bash(.venv/bin/pip install -r requirements.txt)",
+      "Bash(.venv/bin/python -m pip install -r requirements.txt)",
+      "Bash(.venv/Scripts/pip install -r requirements.txt)",
+      "Bash(.venv/Scripts/python -m pip install -r requirements.txt)",
+      "Bash(.venv/bin/pip list)",
+      "Bash(.venv/Scripts/pip list)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/Scripts/python *)",
+      "Bash(.venv/bin/adk *)",
+      "Bash(.venv/Scripts/adk *)",
+      "Bash(.venv/bin/streamlit run *)",
+      "Bash(.venv/Scripts/streamlit run *)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git check-ignore *)",
+      "Bash(gh auth status)",
+      "Bash(ls *)",
+      "Bash(curl -s http://localhost*)",
+      "Bash(curl -s http://127.0.0.1*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.streamlit/secrets.toml)",
+      "Bash(cat .env)",
+      "Bash(cat .env *)",
+      "Bash(cat .streamlit/secrets.toml)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)",
+      "Bash(rm -rf *)"
+    ]
+  }
+}

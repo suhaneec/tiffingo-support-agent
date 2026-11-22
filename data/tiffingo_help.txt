@@ -1,0 +1,87 @@
+TiffinGo Help Docs
+
+TiffinGo is a made-up business. This document is practice data for a learning project.
+
+TiffinGo is a made-up app that delivers home-style meals from partner home kitchens, as single orders or monthly tiffin plans.
+
+Frequently asked questions
+
+Q: What areas do you deliver to?
+A: We deliver within 7 km of each partner kitchen. Enter your address in the app to see kitchens near you.
+
+Q: What are your delivery hours?
+A: Lunch orders 11 AM to 3 PM and dinner orders 7 PM to 11 PM, all days.
+
+Q: Is there a minimum order value?
+A: Yes, ₹150 per order.
+
+Q: How much is the delivery fee?
+A: ₹25 for orders under ₹300. Delivery is free above ₹300.
+
+Q: How long does delivery take?
+A: Usually 30 to 45 minutes. It can take longer in heavy rain or at peak hours.
+
+Q: How do I track my order?
+A: Open Orders in the app to see the live status: Preparing, Out for delivery or Delivered.
+
+Q: Which payment methods do you accept?
+A: UPI, cards, wallets and cash on delivery.
+
+Q: Can I cancel my order?
+A: Yes, free within 2 minutes of placing it. Once the kitchen starts cooking, it cannot be cancelled.
+
+Q: Can I schedule an order for later?
+A: Yes, up to 2 days ahead, for lunch or dinner slots.
+
+Q: Do you have a monthly tiffin plan?
+A: Yes. Plans of 20 or 26 meals a month, for lunch or dinner, start at ₹2,400.
+
+Q: Can I pause my tiffin plan?
+A: Yes. Pause up to 5 days a month from the app, at least one day before.
+
+Q: Is the food vegetarian?
+A: Each kitchen is marked Veg or Non-veg. Veg kitchens cook only vegetarian food.
+
+Q: Do you show allergen details?
+A: Each dish lists common allergens like nuts, dairy and gluten. Kitchens cannot promise zero cross-contact.
+
+Q: Can I ask for less spice?
+A: Yes. Add a cooking note at checkout. Kitchens try to follow it but cannot guarantee it.
+
+Q: My food arrived cold or spilled. What do I do?
+A: Report it in the app within 1 hour of delivery with a photo. You get a refund or a free replacement.
+
+Q: An item was missing from my order.
+A: Report it within 1 hour from the order page. The amount for the missing item is refunded.
+
+Q: How long do refunds take?
+A: UPI and wallet refunds take up to 24 hours. Card refunds take 5 to 7 working days.
+
+Q: How do coupons work?
+A: Apply one coupon at checkout. Coupons cannot be used on tiffin plans.
+
+Q: How do I change my phone number?
+A: Go to Profile, tap Edit and verify the new number with an OTP.
+
+Q: Can I list my home kitchen on TiffinGo?
+A: Yes. Apply on the Partner page. Our team checks hygiene and taste before listing.
+
+Policies
+
+Policy: Cancellation and refund policy
+- Orders can be cancelled free of charge within 2 minutes of placing them.
+- Once the kitchen starts cooking, the order cannot be cancelled.
+- Cold, spilled or missing food must be reported within 1 hour of delivery, with a photo.
+- UPI and wallet refunds take up to 24 hours; card refunds take 5 to 7 working days.
+- Accounts that misuse refunds again and again may lose the option to claim refunds.
+
+Policy: Delivery policy
+- Kitchens deliver within 7 km.
+- Lunch slot: 11 AM to 3 PM. Dinner slot: 7 PM to 11 PM.
+- Deliveries may be late in heavy rain or at peak hours.
+- If the customer cannot be reached, the rider waits 7 minutes. The order is then marked as attempted and is not refunded.
+
+Policy: Food safety and allergy policy
+- Partner kitchens are checked for hygiene every 3 months.
+- Every dish lists common allergens. Kitchens cannot promise zero cross-contact.
+- Anyone who feels unwell after a meal should see a doctor and report it at once. Support passes it to the food safety team.
