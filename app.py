@@ -16,9 +16,11 @@ What the page does, in order:
 """
 
 import asyncio
+import html
 import os
 import time
 import uuid
+from urllib.parse import quote
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -85,103 +87,166 @@ LOGO = """
 </svg>
 """
 
+# Background: a few thin, flowing orange lines (an SVG picture placed behind the whole page).
+LINES = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+  <g fill="none" stroke="#F26B1D" stroke-width="1.4">
+    <path d="M-60 640 C 300 500, 620 780, 940 600 S 1380 420, 1520 520" stroke-opacity="0.22"/>
+    <path d="M-60 690 C 320 560, 640 840, 960 650 S 1400 470, 1520 580" stroke-opacity="0.14"/>
+    <path d="M-60 745 C 340 620, 660 900, 980 705 S 1420 530, 1520 645" stroke-opacity="0.08"/>
+    <path d="M880 -30 C 1040 110, 1240 50, 1520 190" stroke-opacity="0.16"/>
+    <path d="M940 -30 C 1100 150, 1300 100, 1520 255" stroke-opacity="0.09"/>
+  </g>
+</svg>
+"""
+LINES_URL = "data:image/svg+xml;utf8," + quote(" ".join(LINES.split()))
+
 # ---- Look and feel (colours and fonts are in .streamlit/config.toml) ----
 st.markdown(
-    """
+    f"""
     <style>
     /* Soft warm background (fixed, so it stays put when you scroll) */
-    .stApp {
+    .stApp {{
         background:
             radial-gradient(900px circle at 0% 0%, rgba(255, 160, 100, 0.16), transparent 60%),
             radial-gradient(800px circle at 100% 100%, rgba(255, 196, 120, 0.14), transparent 60%),
             #FBF8F5;
         background-attachment: fixed;
-    }
-    header[data-testid="stHeader"] {display: none;}  /* hide Streamlit's own top bar */
+    }}
+    .stApp::before {{  /* the thin lines, fixed behind everything */
+        content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background: url("{LINES_URL}") center / cover no-repeat;
+    }}
+    [data-testid="stMain"] {{position: relative; z-index: 1;
+    }}
+    header[data-testid="stHeader"] {{display: none;}}  /* hide Streamlit's own top bar */
 
     /* Full width, with room for the fixed top bar */
-    .block-container {max-width: 100%; padding: 88px 2rem 1rem 2rem;}
+    .block-container {{max-width: 100%; padding: 88px 2rem 1rem 2rem;}}
 
     /* Fixed top bar with the logo and app name: it never scrolls away */
-    .tg-nav {position: fixed; top: 0; left: 0; right: 0; height: 66px; z-index: 1000;
+    .tg-nav {{position: fixed; top: 0; left: 0; right: 0; height: 66px; z-index: 1000;
              display: flex; align-items: center; justify-content: space-between; padding: 0 2rem;
              background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px);
-             border-bottom: 1px solid #EFE7E0; box-shadow: 0 2px 14px rgba(40, 20, 0, 0.05);}
-    .tg-brand {display: flex; align-items: center; gap: 12px;}
-    .tg-word {font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.45rem; font-weight: 800;
-              color: #1E1E28; letter-spacing: -0.02em;}
-    .tg-divider {width: 1px; height: 24px; background: #E2D9D1;}
-    .tg-area {font-size: 1.02rem; font-weight: 600; color: #6B6B76;}
-    .tg-nav-right {font-size: 0.9rem; color: #6B6B76;}
-    .tg-nav-right b {color: #1E1E28;}
+             border-bottom: 1px solid #EFE7E0; box-shadow: 0 2px 14px rgba(40, 20, 0, 0.05);}}
+    .tg-brand {{display: flex; align-items: center; gap: 12px;}}
+    .tg-word {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.45rem; font-weight: 800;
+              color: #1E1E28; letter-spacing: -0.02em;}}
+    .tg-divider {{width: 1px; height: 24px; background: #E2D9D1;}}
+    .tg-area {{font-size: 1.02rem; font-weight: 600; color: #6B6B76;}}
+    .tg-nav-right {{font-size: 0.9rem; color: #6B6B76;}}
+    .tg-nav-right b {{color: #1E1E28;}}
 
     /* Page headings */
-    .tg-h1 {font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.85rem; font-weight: 800;
-            color: #1E1E28; letter-spacing: -0.02em; margin: 0;}
-    .tg-lead {font-size: 1.02rem; color: #6B6B76; margin: 2px 0 0 0;}
-    .tg-label {font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-               color: #9A6A4A; margin: 18px 0 4px 0;}
+    .tg-h1 {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.85rem; font-weight: 800;
+            color: #1E1E28; letter-spacing: -0.02em; margin: 0;}}
+    .tg-lead {{font-size: 1.02rem; color: #6B6B76; margin: 2px 0 0 0;}}
+    .tg-label {{font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+               color: #9A6A4A; margin: 18px 0 4px 0;}}
 
     /* White cards: the chat panel, the help centre panel and the sign-in form */
-    .st-key-chatcard, .st-key-sidepanel, [data-testid="stForm"] {
+    .st-key-chatcard, .st-key-sidepanel, [data-testid="stForm"] {{
         background: #FFFFFF; border: 1px solid #EFE7E0 !important; border-radius: 18px !important;
-        box-shadow: 0 6px 24px rgba(40, 20, 0, 0.06);}
-    .st-key-chatcard {padding: 0 0 14px 0; gap: 0.6rem;}
-    .st-key-sidepanel {padding: 6px 20px 14px 20px;}
-    [data-testid="stForm"] {padding: 26px 28px;}
+        box-shadow: 0 6px 24px rgba(40, 20, 0, 0.06);}}
+    .st-key-chatcard {{padding: 0 0 14px 0; gap: 0.6rem;}}
+    .st-key-sidepanel {{padding: 6px 20px 14px 20px;}}
+    [data-testid="stForm"] {{padding: 26px 28px;}}
 
     /* Chat panel header strip */
-    .tg-chat-head {display: flex; align-items: center; gap: 12px; padding: 16px 20px;
-                   border-bottom: 1px solid #F1EAE4;}
-    .tg-chat-name {font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.1rem; font-weight: 700; color: #1E1E28;}
-    .tg-chat-status {font-size: 0.86rem; color: #6B6B76;}
-    .tg-dot {display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22A35A;
-             margin-right: 6px; vertical-align: middle;}
-    .st-key-chatcard > div:not(.st-key-chathead) {padding-left: 20px; padding-right: 20px;}
-    .st-key-chathead {padding: 0 !important;}
+    .tg-chat-head {{display: flex; align-items: center; gap: 12px; padding: 14px 0;}}
+    .tg-chat-name {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.1rem; font-weight: 700; color: #1E1E28;}}
+    .tg-chat-status {{font-size: 0.86rem; color: #6B6B76;}}
+    .tg-dot {{display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22A35A;
+             margin-right: 6px; vertical-align: middle;}}
+    .st-key-chatcard > div:not(.st-key-chathead) {{padding-left: 20px; padding-right: 20px;}}
+    .st-key-chathead {{padding: 0 20px !important; border-bottom: 1px solid #F1EAE4;}}
 
     /* The chat messages area: tall, fills the screen, never scrolls sideways */
-    .st-key-chatbox {height: calc(100vh - 330px) !important; min-height: 380px; overflow-x: hidden !important;}
+    .st-key-chatbox {{height: calc(100vh - 330px) !important; min-height: 380px; overflow-x: hidden !important;}}
 
     /* Chat bubbles: Tiffy on the left in grey, the customer on the right in solid orange */
-    [data-testid="stChatMessage"] {width: fit-content; max-width: 78%; background: #F4F1EE;
-                                   border-radius: 6px 18px 18px 18px; padding: 10px 16px; gap: 10px;}
-    [class*="st-key-me_"] [data-testid="stChatMessage"] {margin-left: auto; flex-direction: row-reverse;
-                                                         background: #F26B1D; border-radius: 18px 6px 18px 18px;}
-    [class*="st-key-me_"] [data-testid="stChatMessage"] p {color: #FFFFFF;}
-    [data-testid="stChatMessage"] p {font-size: 1rem; line-height: 1.55; color: #2A2A33;}
+    [data-testid="stChatMessage"] {{width: fit-content; max-width: 78%; background: #F4F1EE;
+                                   border-radius: 6px 18px 18px 18px; padding: 10px 16px; gap: 10px;}}
+    [class*="st-key-me_"] [data-testid="stChatMessage"] {{margin-left: auto; flex-direction: row-reverse;
+                                                         background: #F26B1D; border-radius: 18px 6px 18px 18px;}}
+    [class*="st-key-me_"] [data-testid="stChatMessage"] p {{color: #FFFFFF;}}
+    [data-testid="stChatMessage"] p {{font-size: 1rem; line-height: 1.55; color: #2A2A33;}}
 
     /* Quick-reply chips */
-    .st-key-chips button {background: #FFF6EF; border: 1px solid #F5CFB4; color: #B9500F;
-                          font-weight: 600; min-height: 36px;}
-    .st-key-chips button:hover {background: #F26B1D; border-color: #F26B1D; color: #FFFFFF;}
+    .st-key-chips button {{background: #FFF6EF; border: 1px solid #F5CFB4; color: #B9500F;
+                          font-weight: 600; min-height: 36px;}}
+    .st-key-chips button:hover {{background: #F26B1D; border-color: #F26B1D; color: #FFFFFF;}}
 
     /* Tabs */
-    button[data-baseweb="tab"] p {font-size: 1.05rem; font-weight: 700;}
+    button[data-baseweb="tab"] p {{font-size: 1.05rem; font-weight: 700;}}
 
     /* Help centre list: clean rows with thin dividers */
-    [data-testid="stExpander"] details {border: none; border-bottom: 1px solid #F1EAE4; border-radius: 0;
-                                        background: transparent;}
-    [data-testid="stExpander"] summary {padding: 11px 2px;}
-    [data-testid="stExpander"] summary p {font-size: 0.98rem; font-weight: 600;}
-    [data-testid="stExpander"] summary:hover p {color: #F26B1D;}
-    [data-testid="stExpanderDetails"] {padding: 0 2px 12px 2px;}
-    [data-testid="stExpanderDetails"] p {font-size: 0.96rem; color: #45454F; line-height: 1.6;}
-    .st-key-faqlist {height: calc(100vh - 290px) !important; min-height: 380px;}
+    [data-testid="stExpander"] details {{border: none; border-bottom: 1px solid #F1EAE4; border-radius: 0;
+                                        background: transparent;}}
+    [data-testid="stExpander"] summary {{padding: 11px 2px;}}
+    [data-testid="stExpander"] summary p {{font-size: 0.98rem; font-weight: 600;}}
+    [data-testid="stExpander"] summary:hover p {{color: #F26B1D;}}
+    [data-testid="stExpanderDetails"] {{padding: 0 2px 12px 2px;}}
+    [data-testid="stExpanderDetails"] p {{font-size: 0.96rem; color: #45454F; line-height: 1.6;}}
+    .st-key-faqlist {{height: calc(100vh - 290px) !important; min-height: 380px;}}
 
     /* Ticket counters as tiles */
-    [data-testid="stMetric"] {background: #FFF6EF; border-radius: 14px; padding: 12px 16px;}
+    /* Line icons inside our own HTML (uses the icon font Streamlit already loads) */
+    .tg-ico {{font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal;
+              font-size: 20px; line-height: 1; vertical-align: -4px; margin-right: 8px; color: #F26B1D;
+              font-feature-settings: "liga"; -webkit-font-feature-settings: "liga"; display: inline-block;}}
+
+    /* Help centre: one soft card per topic */
+    [class*="st-key-topic_"] {{background: #FFFFFF; border: 1px solid #F1EAE4; border-radius: 16px;
+                              padding: 6px 16px 4px 16px; margin-bottom: 4px;}}
+    .tg-topic {{display: flex; align-items: center; justify-content: space-between; padding: 10px 0 4px 0;}}
+    .tg-topic-name {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.02rem; font-weight: 700;
+                    color: #1E1E28;}}
+    .tg-count {{font-size: 0.78rem; font-weight: 600; color: #9A6A4A; background: #FFF3EA;
+               border-radius: 999px; padding: 3px 10px;}}
+    [class*="st-key-topic_"] [data-testid="stExpander"]:last-of-type details {{border-bottom: none;}}
+    .tg-answer {{background: #FFF8F3; border-left: 3px solid #F26B1D; border-radius: 8px;
+                padding: 10px 14px; font-size: 0.95rem; color: #3A3A44; line-height: 1.6;}}
+
+    /* My tickets: summary tiles with a coloured top line */
+    .tg-tiles {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 4px 0;}}
+    .tg-tile {{background: #FFFFFF; border: 1px solid #F1EAE4; border-radius: 14px; padding: 12px 14px;
+              border-top: 3px solid var(--accent);}}
+    .tg-tile b {{display: block; font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.7rem;
+                font-weight: 800; color: #1E1E28; line-height: 1.1;}}
+    .tg-tile span {{font-size: 0.85rem; font-weight: 600; color: #6B6B76;}}
+
+    /* My tickets: one card per ticket */
+    [class*="st-key-ticket_"] {{background: #FFFFFF; border: 1px solid #F1EAE4; border-radius: 16px;
+                               padding: 14px 16px 6px 16px; box-shadow: 0 2px 10px rgba(40, 20, 0, 0.03);}}
+    .tg-t-top {{display: flex; align-items: center; justify-content: space-between;}}
+    .tg-t-id {{font-family: ui-monospace, Consolas, monospace; font-size: 0.88rem; font-weight: 700;
+              color: #6B6B76;}}
+    .tg-pill {{font-size: 0.76rem; font-weight: 700; border-radius: 999px; padding: 3px 10px;}}
+    .tg-open {{background: #FFF0E5; color: #C2540F;}}
+    .tg-closed {{background: #E8F6EE; color: #1E8A4C;}}
+    .tg-high {{background: #FDECEC; color: #C53030;}}
+    .tg-normal {{background: #F2F0EE; color: #6B6B76;}}
+    .tg-t-title {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.05rem; font-weight: 700;
+                 color: #1E1E28; margin: 8px 0 4px 0;}}
+    .tg-t-msg {{font-size: 0.93rem; color: #55555F; line-height: 1.5;}}
+    .tg-t-foot {{display: flex; align-items: center; justify-content: space-between; margin-top: 10px;
+                padding-top: 8px; border-top: 1px dashed #EFE7E0; font-size: 0.82rem; color: #8A8A94;}}
+    .tg-empty {{text-align: center; padding: 40px 10px; color: #6B6B76;}}
+    .tg-empty b {{display: block; font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.1rem;
+                 color: #1E1E28; margin-bottom: 4px;}}
+    .st-key-ticketlist {{height: calc(100vh - 430px) !important; min-height: 300px;}}
 
     /* Sign-in page */
-    .tg-hero h1 {font-family: "Plus Jakarta Sans", sans-serif; font-size: 3rem; font-weight: 800;
-                 line-height: 1.12; letter-spacing: -0.03em; color: #1E1E28; padding: 0; margin: 0 0 16px 0;}
-    .tg-hero h1 span {color: #F26B1D;}
-    .tg-hero p {font-size: 1.15rem; color: #55555F; line-height: 1.65; margin: 0 0 28px 0; max-width: 560px;}
-    .tg-facts {display: flex; gap: 14px; flex-wrap: wrap;}
-    .tg-fact {background: #FFFFFF; border: 1px solid #EFE7E0; border-radius: 14px; padding: 14px 18px;
-              min-width: 160px; box-shadow: 0 4px 16px rgba(40, 20, 0, 0.04);}
-    .tg-fact b {display: block; font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.25rem; color: #F26B1D;}
-    .tg-fact span {font-size: 0.9rem; color: #6B6B76;}
+    .tg-hero h1 {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 3rem; font-weight: 800;
+                 line-height: 1.12; letter-spacing: -0.03em; color: #1E1E28; padding: 0; margin: 0 0 16px 0;}}
+    .tg-hero h1 span {{color: #F26B1D;}}
+    .tg-hero p {{font-size: 1.15rem; color: #55555F; line-height: 1.65; margin: 0 0 28px 0; max-width: 560px;}}
+    .tg-facts {{display: flex; gap: 14px; flex-wrap: wrap;}}
+    .tg-fact {{background: #FFFFFF; border: 1px solid #EFE7E0; border-radius: 14px; padding: 14px 18px;
+              min-width: 160px; box-shadow: 0 4px 16px rgba(40, 20, 0, 0.04);}}
+    .tg-fact b {{display: block; font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.25rem; color: #F26B1D;}}
+    .tg-fact span {{font-size: 0.9rem; color: #6B6B76;}}
     </style>
     """,
     unsafe_allow_html=True,
@@ -430,8 +495,8 @@ def bubble(role, key):
 # Page heading row: title on the left, who is signed in and Log out on the right
 title_col, user_col = st.columns([3, 1], vertical_alignment="center")
 title_col.markdown(
-    '<p class="tg-h1">How can we help you today?</p>'
-    '<p class="tg-lead">Chat with Tiffy, browse the help centre, or check your tickets.</p>',
+    '<div class="tg-h1">How can we help you today?</div>'
+    '<div class="tg-lead">Chat with Tiffy, browse the help centre, or check your tickets.</div>',
     unsafe_allow_html=True,
 )
 with user_col.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center"):
@@ -529,6 +594,29 @@ with left, st.container(key="chatcard"):  # "chatcard" gets the white card style
         idle_check()
 
 # ---- Right: help centre and the customer's own tickets (drawn last, so new tickets show) ----
+TOPIC_ICONS = {  # names of Google "material" icons shown next to each topic
+    "Orders & delivery": "local_shipping", "Payments, cancellations & refunds": "payments",
+    "Tiffin plans": "lunch_dining", "Food & allergens": "restaurant", "Account & partners": "manage_accounts",
+    "Other questions": "help", "Policies": "gavel",
+}
+
+
+def topic_header(name, count):
+    """The header row of one help-centre topic card: icon, name and how many articles it has."""
+    icon = TOPIC_ICONS.get(name, "help")
+    st.markdown(
+        f'<div class="tg-topic"><span class="tg-topic-name"><span class="tg-ico">{icon}</span>{name}</span>'
+        f'<span class="tg-count">{count} articles</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def answer_box(text):
+    """An answer in a tinted box with an orange line on the left."""
+    safe = html.escape(text).replace("\n", "<br>")  # keep line breaks
+    st.markdown(f'<div class="tg-answer">{safe}</div>', unsafe_allow_html=True)
+
+
 with right, st.container(key="sidepanel"):  # "sidepanel" gets the white card style
     help_tab, tickets_tab = st.tabs(["Help centre", "My tickets"])
 
@@ -543,38 +631,66 @@ with right, st.container(key="sidepanel"):  # "sidepanel" gets the white card st
             if others:
                 groups["Other questions"] = others
 
-            for topic, questions in groups.items():
-                st.markdown(f'<div class="tg-label">{topic}</div>', unsafe_allow_html=True)
-                for q in questions:
-                    if q in faqs:
+            for number, (topic, questions) in enumerate(groups.items()):
+                questions = [q for q in questions if q in faqs]
+                with st.container(key=f"topic_{number}"):  # one soft card per topic
+                    topic_header(topic, len(questions))
+                    for q in questions:
                         with st.expander(q):
-                            st.markdown(faqs[q])
+                            answer_box(faqs[q])
                             st.button("Ask Tiffy about this", key=f"faq_{q}", on_click=ask, type="tertiary",
                                       args=(q, faq_answer(q)), disabled=s["closed"],
                                       icon=":material/arrow_forward:")
-            st.markdown('<div class="tg-label">Policies</div>', unsafe_allow_html=True)
-            for title, text in policies:
-                with st.expander(title):
-                    st.markdown(text)
+            with st.container(key="topic_policies"):
+                topic_header("Policies", len(policies))
+                for title, text in policies:
+                    with st.expander(title):
+                        answer_box(text)
 
     with tickets_tab:
         tickets = customer_tickets(customer)  # only this customer's tickets, never anyone else's
         open_count = sum(1 for t in tickets if t["status"] == "open")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Total", len(tickets))
-        m2.metric("Open", open_count)
-        m3.metric("Closed", len(tickets) - open_count)
+
+        # Summary tiles
+        st.markdown(
+            f"""<div class="tg-tiles">
+              <div class="tg-tile" style="--accent:#9A9AA5"><b>{len(tickets)}</b><span>Total</span></div>
+              <div class="tg-tile" style="--accent:#F26B1D"><b>{open_count}</b><span>Open</span></div>
+              <div class="tg-tile" style="--accent:#22A35A"><b>{len(tickets) - open_count}</b><span>Closed</span></div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
         if not tickets:
-            st.caption("You have no tickets yet. If Tiffy hands you over to a person, your ticket shows here.")
-        for t in tickets:
-            with st.container(border=True):
-                status = ":orange-badge[Open]" if t["status"] == "open" else ":green-badge[Closed]"
-                flag = ":red-badge[High priority]" if t["priority"] == "high" else ":gray-badge[Normal]"
-                st.markdown(f"**{t['ticket_id']}** &nbsp; {status} {flag}  \n"
-                            f"**{t['reason'].capitalize()}**  \n{t['message']}  \n"
-                            f":gray[{t['time']}]")
-                if t["status"] == "open":
-                    st.button("Mark as resolved", key=f"close_{t['ticket_id']}", type="tertiary",
-                              on_click=close_ticket, args=(t["ticket_id"], customer),
-                              icon=":material/task_alt:")
+            st.markdown(
+                '<div class="tg-empty"><span class="tg-ico" style="font-size:40px;color:#F26B1D">'
+                'confirmation_number</span><b>No tickets yet</b>'
+                "If Tiffy hands you over to a person, your ticket will show here.</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            show = st.segmented_control("Show", ["All", "Open", "Closed"], default="All",
+                                        key="ticket_filter", label_visibility="collapsed") or "All"
+            shown = [t for t in tickets if show == "All" or t["status"] == show.lower()]
+            with st.container(height=420, border=False, key="ticketlist", gap="small"):
+                if not shown:
+                    st.caption(f"No {show.lower()} tickets.")
+                for t in shown:
+                    is_open = t["status"] == "open"
+                    with st.container(key=f"ticket_{t['ticket_id']}"):  # one card per ticket
+                        # html.escape keeps the customer's text as plain text, never as page code
+                        st.markdown(
+                            f"""<div class="tg-t-top"><span class="tg-t-id">{html.escape(t['ticket_id'])}</span>
+                              <span class="tg-pill {'tg-open' if is_open else 'tg-closed'}">
+                              {'Open' if is_open else 'Closed'}</span></div>
+                            <div class="tg-t-title">{html.escape(t['reason'].capitalize())}</div>
+                            <div class="tg-t-msg">{html.escape(t['message'])}</div>
+                            <div class="tg-t-foot"><span>{html.escape(t['time'])}</span>
+                              <span class="tg-pill {'tg-high' if t['priority'] == 'high' else 'tg-normal'}">
+                              {'High priority' if t['priority'] == 'high' else 'Normal priority'}</span></div>""",
+                            unsafe_allow_html=True,
+                        )
+                        if is_open:
+                            st.button("Mark as resolved", key=f"close_{t['ticket_id']}", type="tertiary",
+                                      on_click=close_ticket, args=(t["ticket_id"], customer),
+                                      icon=":material/task_alt:")
