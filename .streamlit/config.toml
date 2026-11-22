@@ -1,19 +1,20 @@
-# The look of the TiffinGo Support page: orange and white, like a food delivery app.
+# The look of the TiffinGo Support page: theme "Masala Sunset" (warm cream, orange, white cards).
 [theme]
 base = "light"
 
 # Colours
 primaryColor = "#F26B1D"              # TiffinGo orange: buttons, links, active tab
-backgroundColor = "#FFFFFF"           # page
+backgroundColor = "#FFF9F3"           # page (warm cream)
 secondaryBackgroundColor = "#FFF6EF"  # light orange: chat box, inputs, tiles
 textColor = "#2B2B33"                 # main text (soft black)
 grayTextColor = "#7A7A85"             # small grey text
 borderColor = "#F0E4DA"               # thin, warm borders
 linkColor = "#F26B1D"
 
-# Text: one friendly rounded font for everything
+# Text: friendly rounded font for reading, bold Poppins for headings
 font = "Nunito Sans:https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap"
-baseFontSize = 15
+headingFont = "Poppins:https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap"
+baseFontSize = 16
 headingFontWeights = [800, 700, 700, 700, 700, 700]
 metricValueFontSize = "1.6rem"
 metricValueFontWeight = 800

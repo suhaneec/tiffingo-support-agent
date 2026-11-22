@@ -74,35 +74,85 @@ TOPICS = {
 st.markdown(
     """
     <style>
-    /* Page spacing */
-    .block-container {padding-top: 1.2rem; padding-bottom: 1rem; max-width: 1300px;}
+    /* ===== Theme "Masala Sunset": warm cream page, soft abstract shapes, white cards ===== */
 
-    /* Orange top bar */
-    .tg-header {background: linear-gradient(90deg, #F26B1D, #FF9A52); color: white;
-                padding: 14px 22px; border-radius: 16px; margin-bottom: 16px;}
-    .tg-title {font-size: 1.35rem; font-weight: 800;}
-    .tg-sub {font-size: 0.88rem; opacity: 0.95;}
+    /* Abstract background: soft coloured glows + a faint dot pattern, fixed behind everything */
+    .stApp {
+        background:
+            radial-gradient(650px circle at 6% 8%, rgba(255, 154, 82, 0.30), transparent 60%),
+            radial-gradient(520px circle at 96% 14%, rgba(255, 200, 87, 0.28), transparent 60%),
+            radial-gradient(720px circle at 88% 96%, rgba(110, 200, 160, 0.20), transparent 60%),
+            radial-gradient(560px circle at 4% 94%, rgba(242, 107, 29, 0.16), transparent 60%),
+            #FFF9F3;
+        background-attachment: fixed;
+        isolation: isolate;
+    }
+    .stApp::before {
+        content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+        background-image: radial-gradient(rgba(242, 107, 29, 0.13) 1.2px, transparent 1.2px);
+        background-size: 24px 24px;
+    }
+    [data-testid="stHeader"] {background: transparent;}  /* Streamlit's top bar: see-through */
 
-    /* Small orange section labels (Quick help, FAQ topics) */
-    .tg-label {font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
-               color: #F26B1D; margin: 14px 0 4px 0;}
+    /* Page spacing (room at the top so the title isn't hidden under Streamlit's toolbar) */
+    .block-container {padding-top: 3.6rem; padding-bottom: 1.5rem; max-width: 1320px;}
 
-    /* Chat bubbles: Tiffy on the left in grey, the customer on the right in light orange */
-    [data-testid="stChatMessage"] {border-radius: 18px; padding: 8px 14px; background: #F5F5F7;
+    /* Orange title bar with two decorative circles */
+    .tg-header {position: relative; overflow: hidden; color: white; margin-bottom: 20px;
+                padding: 22px 28px; border-radius: 22px;
+                background: linear-gradient(110deg, #E85A0C 0%, #F26B1D 45%, #FFA25C 100%);
+                box-shadow: 0 10px 30px rgba(242, 107, 29, 0.25);}
+    .tg-header::before, .tg-header::after {content: ""; position: absolute; border-radius: 50%;
+                background: rgba(255, 255, 255, 0.14);}
+    .tg-header::before {width: 220px; height: 220px; right: -60px; top: -90px;}
+    .tg-header::after {width: 130px; height: 130px; right: 150px; bottom: -80px;}
+    .tg-title {font-family: "Poppins", sans-serif; font-size: 2rem; font-weight: 800; line-height: 1.2;}
+    .tg-sub {font-size: 1.02rem; opacity: 0.95; margin-top: 4px;}
+
+    /* Big section headings */
+    .tg-section {font-family: "Poppins", sans-serif; font-size: 1.45rem; font-weight: 700;
+                 color: #2B2B33; margin: 4px 0 10px 0;}
+
+    /* Small orange labels (FAQ topics) */
+    .tg-label {font-size: 0.8rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+               color: #E85A0C; margin: 18px 0 4px 0;}
+
+    /* White cards: the chat window, the right-hand panel and the login form */
+    .st-key-chatbox, .st-key-sidepanel, [data-testid="stForm"] {
+        background: #FFFFFF; border: 1px solid #F3E6DB !important; border-radius: 22px !important;
+        box-shadow: 0 8px 28px rgba(120, 60, 20, 0.08);}
+    .st-key-sidepanel {padding: 8px 18px 12px 18px;}
+    [data-testid="stForm"] {padding: 22px 24px;}
+
+    /* Login page: big welcome heading */
+    .tg-hero h1 {font-family: "Poppins", sans-serif; font-size: 2.9rem; font-weight: 800;
+                 line-height: 1.15; color: #2B2B33; padding: 0; margin: 10px 0 14px 0;}
+    .tg-hero h1 span {color: #F26B1D;}
+    .tg-hero p {font-size: 1.15rem; color: #4A4A55; line-height: 1.6; margin-bottom: 18px;}
+    .tg-point {font-size: 1.05rem; color: #2B2B33; margin: 8px 0;}
+    .tg-point b {color: #E85A0C;}
+
+    /* Tabs: bigger and bolder */
+    button[data-baseweb="tab"] p {font-size: 1.08rem; font-weight: 700;}
+
+    /* Chat bubbles: Tiffy on the left in soft grey, the customer on the right in light orange */
+    [data-testid="stChatMessage"] {border-radius: 18px; padding: 10px 16px; background: #F6F4F2;
                                    margin-right: 12%; gap: 10px;}
-    [class*="st-key-me_"] [data-testid="stChatMessage"] {background: #FFE6D5; flex-direction: row-reverse;
+    [class*="st-key-me_"] [data-testid="stChatMessage"] {background: #FFE3CF; flex-direction: row-reverse;
                                                          margin-right: 0; margin-left: 12%;}
-    [data-testid="stChatMessage"] p {font-size: 0.95rem; line-height: 1.5;}
+    [data-testid="stChatMessage"] p {font-size: 1rem; line-height: 1.55; color: #2B2B33;}
 
     /* FAQ list: clean rows with thin dividers instead of boxes */
-    [data-testid="stExpander"] details {border: none; border-bottom: 1px solid #F0E4DA; border-radius: 0;}
-    [data-testid="stExpander"] summary {padding: 10px 2px; font-size: 0.93rem; font-weight: 600;}
-    [data-testid="stExpander"] summary:hover {color: #F26B1D;}
-    [data-testid="stExpanderDetails"] {padding: 0 2px 10px 2px;}
-    [data-testid="stExpanderDetails"] p {font-size: 0.9rem; color: #5C5C66; line-height: 1.55;}
+    [data-testid="stExpander"] details {border: none; border-bottom: 1px solid #F0E4DA; border-radius: 0;
+                                        background: transparent;}
+    [data-testid="stExpander"] summary {padding: 11px 2px;}
+    [data-testid="stExpander"] summary p {font-size: 1rem; font-weight: 600;}
+    [data-testid="stExpander"] summary:hover p {color: #F26B1D;}
+    [data-testid="stExpanderDetails"] {padding: 0 2px 12px 2px;}
+    [data-testid="stExpanderDetails"] p {font-size: 0.97rem; color: #45454F; line-height: 1.6;}
 
-    /* Ticket counters as small tiles */
-    [data-testid="stMetric"] {background: #FFF6EF; border-radius: 14px; padding: 10px 14px;}
+    /* Ticket counters as small orange tiles */
+    [data-testid="stMetric"] {background: #FFF3E9; border-radius: 16px; padding: 12px 16px;}
     </style>
     <div class="tg-header">
       <div class="tg-title">🍱 TiffinGo · Help &amp; Support</div>
@@ -167,9 +217,24 @@ def send_otp(email):
 
 
 if not s.get("customer"):
-    _, middle, _ = st.columns([1, 2, 1])
+    hero, middle = st.columns([1.15, 1], gap="large", vertical_alignment="center")
+    with hero:
+        # Big welcome text on the left
+        st.markdown(
+            """
+            <div class="tg-hero">
+              <h1>Hungry? Stuck?<br><span>We've got you.</span></h1>
+              <p>Track orders, sort out refunds, manage your tiffin plan, and get answers in seconds
+                 from Tiffy, your TiffinGo helper.</p>
+              <div class="tg-point"><b>✓</b> Instant answers from our help centre</div>
+              <div class="tg-point"><b>✓</b> A real person when you need one</div>
+              <div class="tg-point"><b>✓</b> Your tickets stay private to you</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     with middle:
-        st.subheader("Log in to get help")
+        st.markdown('<div class="tg-section">Log in to get help</div>', unsafe_allow_html=True)
 
         if "otp_email" not in s:
             # Step 1: ask for the email and send the code.
@@ -322,6 +387,7 @@ left, right = st.columns([3, 2], gap="large")
 # ---- Left side: the chat window ----
 with left:
     top_left, top_right = st.columns([3, 2], vertical_alignment="center")
+    top_left.markdown('<div class="tg-section">💬 Chat with Tiffy</div>', unsafe_allow_html=True)
     top_left.caption(f"Logged in as {customer[0]}•••@{customer.split('@')[1]}")
     with top_right:
         b1, b2 = st.columns(2)
@@ -344,7 +410,7 @@ with left:
         with st.container(key=("me_" if role == "user" else "bot_") + str(key)):
             return st.chat_message(role, avatar="🍱" if role == "assistant" else "🙂")
 
-    chat_box = st.container(height=420)
+    chat_box = st.container(height=420, key="chatbox")  # "chatbox" gets the white card style
     with chat_box:
         for i, m in enumerate(s["messages"]):
             with bubble(m["role"], i):
@@ -409,7 +475,7 @@ with left:
         idle_check()
 
 # ---- Right side: help topics and the customer's own tickets (drawn last, so new tickets show) ----
-with right:
+with right, st.container(key="sidepanel"):  # "sidepanel" gets the white card style
     help_tab, tickets_tab = st.tabs(["❓ Help topics", "🎫 My tickets"])
 
     with help_tab:
