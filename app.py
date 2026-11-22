@@ -105,20 +105,16 @@ LINES_URL = "data:image/svg+xml;utf8," + quote(" ".join(LINES.split()))
 st.markdown(
     f"""
     <style>
-    /* Soft warm background (fixed, so it stays put when you scroll) */
-    .stApp {{
+    /* Background: thin orange lines + soft warm glows, fixed so they stay put when you scroll.
+       It goes on Streamlit's page area itself, so nothing paints over it. */
+    .stApp, [data-testid="stAppViewContainer"] {{
         background:
-            radial-gradient(900px circle at 0% 0%, rgba(255, 160, 100, 0.16), transparent 60%),
-            radial-gradient(800px circle at 100% 100%, rgba(255, 196, 120, 0.14), transparent 60%),
-            #FBF8F5;
-        background-attachment: fixed;
+            url("{LINES_URL}") center / cover no-repeat fixed,
+            radial-gradient(900px circle at 0% 0%, rgba(255, 160, 100, 0.16), transparent 60%) fixed,
+            radial-gradient(800px circle at 100% 100%, rgba(255, 196, 120, 0.14), transparent 60%) fixed,
+            #FBF8F5 !important;
     }}
-    .stApp::before {{  /* the thin lines, fixed behind everything */
-        content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-        background: url("{LINES_URL}") center / cover no-repeat;
-    }}
-    [data-testid="stMain"] {{position: relative; z-index: 1;
-    }}
+    [data-testid="stMain"], [data-testid="stMainBlockContainer"] {{background: transparent !important;}}
     header[data-testid="stHeader"] {{display: none;}}  /* hide Streamlit's own top bar */
 
     /* Full width, with room for the fixed top bar */
@@ -144,13 +140,12 @@ st.markdown(
     .tg-label {{font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
                color: #9A6A4A; margin: 18px 0 4px 0;}}
 
-    /* White cards: the chat panel, the help centre panel and the sign-in form */
-    .st-key-chatcard, .st-key-sidepanel, [data-testid="stForm"] {{
+    /* White cards: the chat panel and the help centre panel */
+    .st-key-chatcard, .st-key-sidepanel {{
         background: #FFFFFF; border: 1px solid #EFE7E0 !important; border-radius: 18px !important;
         box-shadow: 0 6px 24px rgba(40, 20, 0, 0.06);}}
     .st-key-chatcard {{padding: 0 0 14px 0; gap: 0.6rem;}}
     .st-key-sidepanel {{padding: 6px 20px 14px 20px;}}
-    [data-testid="stForm"] {{padding: 26px 28px;}}
 
     /* Chat panel header strip */
     .tg-chat-head {{display: flex; align-items: center; gap: 12px; padding: 14px 0;}}
@@ -238,15 +233,33 @@ st.markdown(
     .st-key-ticketlist {{height: calc(100vh - 430px) !important; min-height: 300px;}}
 
     /* Sign-in page */
-    .tg-hero h1 {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 3rem; font-weight: 800;
-                 line-height: 1.12; letter-spacing: -0.03em; color: #1E1E28; padding: 0; margin: 0 0 16px 0;}}
-    .tg-hero h1 span {{color: #F26B1D;}}
+    .st-key-signin_page {{min-height: calc(100vh - 130px); justify-content: center;}}  /* centred on screen */
+    .tg-hero-title {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 3.1rem; font-weight: 800;
+                     line-height: 1.12; letter-spacing: -0.03em; color: #1E1E28 !important; margin: 0 0 18px 0;}}
+    .tg-hero-title span {{color: #F26B1D !important;}}
     .tg-hero p {{font-size: 1.15rem; color: #55555F; line-height: 1.65; margin: 0 0 28px 0; max-width: 560px;}}
     .tg-facts {{display: flex; gap: 14px; flex-wrap: wrap;}}
     .tg-fact {{background: #FFFFFF; border: 1px solid #EFE7E0; border-radius: 14px; padding: 14px 18px;
               min-width: 160px; box-shadow: 0 4px 16px rgba(40, 20, 0, 0.04);}}
     .tg-fact b {{display: block; font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.25rem; color: #F26B1D;}}
     .tg-fact span {{font-size: 0.9rem; color: #6B6B76;}}
+
+    /* Sign-in card: narrow, centred, with a soft deep shadow */
+    .st-key-signin_card {{max-width: 440px; width: 100%; margin: 0 auto; background: #FFFFFF;
+                         border: 1px solid #EFE7E0; border-radius: 22px; padding: 30px 32px 22px 32px;
+                         box-shadow: 0 24px 60px rgba(40, 20, 0, 0.10); gap: 0.8rem;}}
+    .tg-step {{display: inline-block; margin-left: 10px; font-size: 0.75rem; font-weight: 700;
+              color: #B9500F; background: #FFF1E6; border-radius: 999px; padding: 4px 10px; vertical-align: 12px;}}
+    .tg-card-title {{font-family: "Plus Jakarta Sans", sans-serif; font-size: 1.6rem; font-weight: 800;
+                    color: #1E1E28; letter-spacing: -0.02em; margin: 18px 0 4px 0;}}
+    .tg-card-sub {{font-size: 0.95rem; color: #6B6B76; line-height: 1.5;}}
+    .tg-card-sub b {{color: #1E1E28;}}
+    .st-key-signin_card [data-testid="stForm"] {{border: none; padding: 0;}}
+    .st-key-signin_card input {{height: 48px; font-size: 1rem;}}
+    .st-key-signin_card [data-testid="stFormSubmitButton"] button {{min-height: 48px; font-size: 1rem;
+                                                                   font-weight: 700;}}
+    .tg-note {{font-size: 0.82rem; color: #8A8A94; border-top: 1px solid #F1EAE4; padding-top: 14px;
+              line-height: 1.5;}}
     </style>
     """,
     unsafe_allow_html=True,
@@ -318,71 +331,88 @@ def send_otp(email):
     return ""
 
 
-if not s.get("customer"):
-    st.write("")  # a little space under the top bar
-    hero, _, card = st.columns([1.25, 0.1, 0.9], vertical_alignment="center")
-    with hero:
-        st.markdown(
-            """
-            <div class="tg-hero">
-              <h1>Support for every<br><span>TiffinGo</span> order.</h1>
-              <p>Track deliveries, manage your tiffin plan, and resolve payment or refund questions
-                 with Tiffy, our support assistant. When you need a person, our team takes over.</p>
-              <div class="tg-facts">
-                <div class="tg-fact"><b>Instant</b><span>answers from our help centre</span></div>
-                <div class="tg-fact"><b>24 hours</b><span>for a reply from our team</span></div>
-                <div class="tg-fact"><b>Private</b><span>your tickets, only for you</span></div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with card:
-        if "otp_email" not in s:
-            # Step 1: ask for the email and send the code.
-            with st.form("email_form"):
-                st.markdown("### Sign in")
-                st.caption("Enter your email and we'll send you a 6-digit code. No password needed.")
-                typed_email = st.text_input("Email address", placeholder="you@example.com")
-                send = st.form_submit_button("Send code", type="primary", width="stretch")
-            if send:
-                email = accounts.clean_email(typed_email)
-                problem = send_otp(email) if email else "That doesn't look like an email address."
-                if problem:
-                    st.error(problem)
-                else:
-                    st.rerun()
-        else:
-            # Step 2: check the code they type.
-            with st.form("otp_form"):
-                st.markdown("### Enter your code")
-                st.caption(f"We sent a 6-digit code to {s['otp_email']}. Check your inbox and spam folder.")
-                typed_code = st.text_input("6-digit code", max_chars=6)
-                check = st.form_submit_button("Sign in", type="primary", width="stretch")
-            if check:
-                if time.time() > s["otp_expires"]:
-                    st.error("This code has expired. Click Resend code to get a new one.")
-                elif s["otp_tries"] >= 5:
-                    st.error("Too many wrong codes. Click Resend code to get a new one.")
-                elif accounts.code_matches(typed_code, s["otp_hash"]):
-                    s["customer"] = s["otp_email"]
-                    for key in ("otp_email", "otp_hash", "otp_tries", "otp_expires"):
-                        s.pop(key, None)
-                    st.rerun()
-                else:
-                    s["otp_tries"] += 1
-                    st.error(f"That code isn't right. {5 - s['otp_tries']} tries left.")
+def card_header(step, title, subtitle):
+    """The top of the sign-in card: logo, step tag, big title and a short line under it."""
+    st.markdown(
+        f'<div>{LOGO}<span class="tg-step">Step {step} of 2</span></div>'
+        f'<div class="tg-card-title">{title}</div><div class="tg-card-sub">{subtitle}</div>',
+        unsafe_allow_html=True,
+    )
 
-            c1, c2 = st.columns(2)
-            if c1.button("Resend code", type="tertiary"):
-                problem = send_otp(s["otp_email"])
-                if problem:
-                    st.error(problem)
-                else:
-                    st.toast("New code sent.")
-            if c2.button("Use a different email", type="tertiary"):
-                s.pop("otp_email", None)
-                st.rerun()
+
+if not s.get("customer"):
+    with st.container(key="signin_page"):  # centred on the screen
+        hero, _, card = st.columns([1.2, 0.1, 1], vertical_alignment="center")
+        with hero:
+            st.markdown(
+                """
+                <div class="tg-hero">
+                  <div class="tg-hero-title">Support for every<br><span>TiffinGo</span> order.</div>
+                  <p>Track deliveries, manage your tiffin plan, and resolve payment or refund questions
+                     with Tiffy, our support assistant. When you need a person, our team takes over.</p>
+                  <div class="tg-facts">
+                    <div class="tg-fact"><b>Instant</b><span>answers from our help centre</span></div>
+                    <div class="tg-fact"><b>24 hours</b><span>for a reply from our team</span></div>
+                    <div class="tg-fact"><b>Private</b><span>your tickets, only for you</span></div>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with card, st.container(key="signin_card"):  # "signin_card" gets the narrow white card style
+            if "otp_email" not in s:
+                # Step 1: ask for the email and send the code.
+                card_header(1, "Sign in to TiffinGo",
+                            "Enter your email and we'll send you a one-time code. No password needed.")
+                with st.form("email_form", border=False):
+                    typed_email = st.text_input("Email address", placeholder="you@example.com")
+                    send = st.form_submit_button("Continue", type="primary", width="stretch")
+                if send:
+                    email = accounts.clean_email(typed_email)
+                    problem = send_otp(email) if email else "That doesn't look like an email address."
+                    if problem:
+                        st.error(problem)
+                    else:
+                        st.rerun()
+            else:
+                # Step 2: check the code they type.
+                card_header(2, "Check your email",
+                            f"Enter the 6-digit code we sent to <b>{html.escape(s['otp_email'])}</b>. "
+                            "It may take a minute, and it could be in your spam folder.")
+                with st.form("otp_form", border=False):
+                    typed_code = st.text_input("6-digit code", max_chars=6, placeholder="••••••")
+                    check = st.form_submit_button("Verify and sign in", type="primary", width="stretch")
+                if check:
+                    if time.time() > s["otp_expires"]:
+                        st.error("This code has expired. Click Resend code to get a new one.")
+                    elif s["otp_tries"] >= 5:
+                        st.error("Too many wrong codes. Click Resend code to get a new one.")
+                    elif accounts.code_matches(typed_code, s["otp_hash"]):
+                        s["customer"] = s["otp_email"]
+                        for key in ("otp_email", "otp_hash", "otp_tries", "otp_expires"):
+                            s.pop(key, None)
+                        st.rerun()
+                    else:
+                        s["otp_tries"] += 1
+                        st.error(f"That code isn't right. {5 - s['otp_tries']} tries left.")
+
+                with st.container(horizontal=True, horizontal_alignment="distribute"):
+                    if st.button("Resend code", type="tertiary", icon=":material/refresh:"):
+                        problem = send_otp(s["otp_email"])
+                        if problem:
+                            st.error(problem)
+                        else:
+                            st.toast("New code sent.")
+                    if st.button("Change email", type="tertiary", icon=":material/edit:"):
+                        s.pop("otp_email", None)
+                        st.rerun()
+
+            st.markdown(
+                '<div class="tg-note"><span class="tg-ico" style="font-size:16px;color:#8A8A94;'
+                'margin-right:6px;vertical-align:-3px">lock</span>We only use your email to send your code '
+                "and keep your tickets private.</div>",
+                unsafe_allow_html=True,
+            )
     st.stop()
 
 customer = s["customer"]
